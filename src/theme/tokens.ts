@@ -30,10 +30,12 @@ export type AmbientTone = 'healthy' | 'sapphire' | 'alert';
 
 export const AMBIENT_GRADIENTS = {
   dark: {
-    healthyPrimary: ['#0E6B36', '#07331A', 'rgba(5, 6, 8, 0)'] as const,
-    healthySecondary: ['#135E3D', '#0B3B2B', 'rgba(5, 6, 8, 0)'] as const,
-    sapphirePrimary: ['#102D5C', '#081834', 'rgba(5, 6, 8, 0)'] as const,
-    sapphireSecondary: ['#153A6E', '#0A1E3D', 'rgba(5, 6, 8, 0)'] as const,
+    // Emerald atmospheric sweep: left-edge ribbon (spec: #0D5D30 → #053C1F → transparent)
+    healthyPrimary: ['#0D5D30', '#053C1F', 'rgba(5, 6, 8, 0)'] as const,
+    // Sapphire ambient breathing: right/lower-middle edge (spec: #0F1F40 → transparent)
+    healthySecondary: ['#0F1F40', '#091428', 'rgba(5, 6, 8, 0)'] as const,
+    sapphirePrimary: ['#0F1F40', '#070F22', 'rgba(5, 6, 8, 0)'] as const,
+    sapphireSecondary: ['#1A3060', '#0A1838', 'rgba(5, 6, 8, 0)'] as const,
     alertPrimary: ['#561224', '#2A0913', 'rgba(5, 6, 8, 0)'] as const,
     alertSecondary: ['#68182E', '#330B17', 'rgba(5, 6, 8, 0)'] as const,
   },

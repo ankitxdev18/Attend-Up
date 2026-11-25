@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   createDrawerNavigator,
@@ -116,6 +116,12 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
         <View style={styles.brandRow}>
           <View style={styles.brandCol}>
             <View style={styles.brandTitleRow}>
+              <Image
+                source={require('../../assets/icon.png')}
+                style={styles.brandMark}
+                resizeMode="contain"
+                accessibilityLabel="AttendUp logo"
+              />
               <Text
                 style={[
                   styles.brandTitle,
@@ -404,7 +410,7 @@ export function AppNavigator() {
             width: 300,
             backgroundColor: palette.background,
             borderRightWidth: 1,
-            borderRightColor: palette.isDark
+            borderRightColor: isDark
               ? 'rgba(255, 255, 255, 0.08)'
               : palette.border,
           },
@@ -446,6 +452,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     flexWrap: 'wrap',
+  },
+  brandMark: {
+    width: 26,
+    height: 26,
+    borderRadius: 6,
   },
   brandTitle: {
     fontSize: 19,

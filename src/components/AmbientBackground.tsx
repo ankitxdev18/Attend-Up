@@ -19,8 +19,17 @@ interface AmbientBackgroundProps extends ViewProps {
 
 /**
  * Full-screen edge-sweeping Gemini-style ambient light background.
- * Two counter-drifting gradient ribbons sweep diagonally across the entire screen
- * height and perimeter over 9s and 11s continuous cycles.
+ *
+ * Layer 1 — Emerald atmospheric sweep (8 s):
+ *   Ribbon starts at top-left corner, sweeps down the left edge.
+ *   Gradient: #0D5D30 → #053C1F → transparent (dark) or green-tinted rgba (light).
+ *
+ * Layer 2 — Sapphire ambient breathing (11 s):
+ *   Ribbon pulses from the right/lower-middle edge.
+ *   Gradient: #0F1F40 → transparent (dark) or blue-tinted rgba (light).
+ *
+ * Both use Easing.bezier(0.25, 1, 0.5, 1) — the smooth custom ease-out cubic
+ * the user specified.
  */
 export function AmbientBackground({
   tone = 'healthy',
@@ -45,56 +54,46 @@ export function AmbientBackground({
         ? mode.sapphireSecondary
         : mode.healthySecondary;
 
-  const ribbon1 = useSharedValue(0);
-  const ribbon2 = useSharedValue(0);
+  // ─── Shared animation values ───────────────────────────────────────────────
+  const sweepAnim = useSharedValue(0);   // 8 s — emerald left-edge sweep
+  const breatheAnim = useSharedValue(0); // 11 s — sapphire right/bottom breath
 
   useEffect(() => {
-    ribbon1.value = withRepeat(
+    const bezier = Easing.bezier(0.25, 1, 0.5, 1);
+    sweepAnim.value = withRepeat(
       withSequence(
-        withTiming(1, {
-          duration: 4500,
-          easing: Easing.inOut(Easing.sin),
-        }),
-        withTiming(0, {
-          duration: 4500,
-          easing: Easing.inOut(Easing.sin),
-        })
+        withTiming(1, { duration: 8000, easing: bezier }),
+        withTiming(0, { duration: 8000, easing: bezier }),
       ),
       -1,
-      false
+      false,
     );
-
-    ribbon2.value = withRepeat(
+    breatheAnim.value = withRepeat(
       withSequence(
-        withTiming(1, {
-          duration: 5500,
-          easing: Easing.inOut(Easing.sin),
-        }),
-        withTiming(0, {
-          duration: 5500,
-          easing: Easing.inOut(Easing.sin),
-        })
+        withTiming(1, { duration: 11000, easing: bezier }),
+        withTiming(0, { duration: 11000, easing: bezier }),
       ),
       -1,
-      false
+      false,
     );
-  }, [ribbon1, ribbon2]);
+  }, [sweepAnim, breatheAnim]);
 
-  const ribbon1Style = useAnimatedStyle(() => ({
+  // ─── Emerald sweep: slides DOWN the left edge ──────────────────────────────
+  const sweepStyle = useAnimatedStyle(() => ({
+    opacity: 0.60 + sweepAnim.value * 0.40,
     transform: [
-      { translateX: -45 + ribbon1.value * 100 },
-      { translateY: -20 + ribbon1.value * 110 },
-      { rotate: `${-12 + ribbon1.value * 20}deg` },
+      { translateY: -30 + sweepAnim.value * 70 },  // sweeps down
+      { translateX: -20 + sweepAnim.value * 15 },  // slight horizontal drift
     ],
-    opacity: 0.72 + ribbon1.value * 0.28,
   }));
 
-  const ribbon2Style = useAnimatedStyle(() => ({
+  // ─── Sapphire breathe: expands from bottom-right corner ───────────────────
+  const breatheStyle = useAnimatedStyle(() => ({
+    opacity: 0.45 + breatheAnim.value * 0.45,
     transform: [
-      { translateX: 45 - ribbon2.value * 95 },
-      { translateY: 40 - ribbon2.value * 100 },
+      { translateX: 20 - breatheAnim.value * 30 }, // drifts left
+      { translateY: 20 - breatheAnim.value * 40 }, // drifts up
     ],
-    opacity: 0.55 + ribbon2.value * 0.35,
   }));
 
   return (
@@ -102,23 +101,26 @@ export function AmbientBackground({
       style={[styles.root, { backgroundColor: palette.background }, style]}
       {...rest}
     >
+      {/* ── Ambient gradient layers (non-interactive) ── */}
       <View pointerEvents="none" style={styles.ambientContainer}>
-        <Animated.View style={[styles.ribbon1Box, ribbon1Style]}>
+        {/* Layer 1: Emerald atmospheric sweep — top-left → down left edge */}
+        <Animated.View style={[styles.sweepBox, sweepStyle]}>
           <LinearGradient
             colors={primaryColors}
-            locations={[0, 0.48, 1]}
-            start={{ x: 0.1, y: 0 }}
-            end={{ x: 0.9, y: 0.85 }}
+            locations={[0, 0.52, 1]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0.75, y: 1 }}
             style={styles.fill}
           />
         </Animated.View>
 
-        <Animated.View style={[styles.ribbon2Box, ribbon2Style]}>
+        {/* Layer 2: Sapphire ambient breathing — right / lower-middle edge */}
+        <Animated.View style={[styles.breatheBox, breatheStyle]}>
           <LinearGradient
             colors={secondaryColors}
-            locations={[0, 0.5, 1]}
-            start={{ x: 0.85, y: 1 }}
-            end={{ x: 0.15, y: 0.1 }}
+            locations={[0, 0.55, 1]}
+            start={{ x: 1, y: 1 }}
+            end={{ x: 0.2, y: 0.1 }}
             style={styles.fill}
           />
         </Animated.View>
@@ -157,19 +159,27 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
   },
-  ribbon1Box: {
+  /**
+   * Emerald sweep box — anchored top-left, tall enough to cover the left
+   * perimeter and upper half of the screen.
+   * width: 85% keeps it from bleeding fully across the screen centre.
+   */
+  sweepBox: {
     position: 'absolute',
-    top: -90,
-    left: '-22%',
-    width: '130%',
-    height: '75%',
+    top: -60,
+    left: '-10%',
+    width: '85%',
+    height: '80%',
   },
-  ribbon2Box: {
+  /**
+   * Sapphire breathe box — anchored bottom-right, covers the right/lower half.
+   */
+  breatheBox: {
     position: 'absolute',
-    bottom: -70,
-    left: '-15%',
-    width: '130%',
-    height: '70%',
+    bottom: -50,
+    right: '-10%',
+    width: '90%',
+    height: '75%',
   },
   menuIconWrap: {
     width: 18,
