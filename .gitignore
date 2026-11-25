@@ -37,9 +37,10 @@ yarn-error.*
 *.tsbuildinfo
 
 # generated native & build folders
-/ios
-/android
+ios/
+android/
 android/build/
 android/app/build/
 *.keystore
+dist-release/
 .tmp-bundle-check/
