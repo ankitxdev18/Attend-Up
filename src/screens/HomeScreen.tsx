@@ -28,13 +28,13 @@ import {
   LayoutGrid,
   MoreVertical,
   Plus,
-  Sparkles,
   SquarePen,
   Target,
   Trash2,
   X,
   XCircle,
 } from 'lucide-react-native';
+import { BrandLogo } from '../components/BrandLogo';
 import type { HomeStackParamList, RootDrawerParamList } from '../navigation/types';
 import type { SortMode, Subject } from '../types/attendance';
 import { useAttendance } from '../context/AttendanceContext';
@@ -81,6 +81,7 @@ export function HomeScreen() {
     subjects,
     records,
     palette,
+    activeAccent,
     isDark,
     overallPercentage,
     sortMode,
@@ -309,31 +310,7 @@ export function HomeScreen() {
               query.trim() ? undefined : (
                 <View style={styles.heroWrap}>
                   <View style={styles.heroHeadingBlock}>
-                    <View
-                      style={[
-                        styles.sparkBadge,
-                        {
-                          backgroundColor:
-                            ambientTone === 'alert'
-                              ? 'rgba(251, 113, 133, 0.16)'
-                              : BRAND_COLORS.emeraldPresentBg,
-                          borderColor:
-                            ambientTone === 'alert'
-                              ? 'rgba(251, 113, 133, 0.32)'
-                              : 'rgba(16, 185, 129, 0.32)',
-                        },
-                      ]}
-                    >
-                      <Sparkles
-                        size={14}
-                        color={
-                          ambientTone === 'alert'
-                            ? SEMANTIC_COLORS.absent
-                            : BRAND_COLORS.emeraldText
-                        }
-                        strokeWidth={1.75}
-                      />
-                    </View>
+                    <BrandLogo size={36} />
                     <Text
                       style={[
                         styles.heroTitle,
@@ -739,7 +716,7 @@ export function HomeScreen() {
                 }}
                 style={[
                   styles.dockActionBtn,
-                  { backgroundColor: BRAND_COLORS.emerald },
+                  { backgroundColor: activeAccent.primary },
                 ]}
                 accessibilityLabel="Open Quick Attendance"
               >
@@ -800,10 +777,10 @@ export function HomeScreen() {
                       styles.sortPill,
                       {
                         backgroundColor: active
-                          ? BRAND_COLORS.emeraldPresentBg
+                          ? activeAccent.tintBg
                           : palette.control,
                         borderColor: active
-                          ? BRAND_COLORS.emerald
+                          ? activeAccent.primary
                           : palette.border,
                       },
                     ]}
@@ -811,7 +788,7 @@ export function HomeScreen() {
                     <Text
                       style={{
                         color: active
-                          ? BRAND_COLORS.emeraldText
+                          ? activeAccent.bright
                           : palette.textPrimary,
                         fontSize: 13,
                         fontFamily: FONT_FAMILIES.sansSemiBold,
@@ -846,10 +823,10 @@ export function HomeScreen() {
                       styles.sortPill,
                       {
                         backgroundColor: active
-                          ? BRAND_COLORS.emeraldPresentBg
+                          ? activeAccent.tintBg
                           : palette.control,
                         borderColor: active
-                          ? BRAND_COLORS.emerald
+                          ? activeAccent.primary
                           : palette.border,
                       },
                     ]}
@@ -857,7 +834,7 @@ export function HomeScreen() {
                     <Text
                       style={{
                         color: active
-                          ? BRAND_COLORS.emeraldText
+                          ? activeAccent.bright
                           : palette.textPrimary,
                         fontSize: 13,
                         fontFamily: FONT_FAMILIES.sansSemiBold,
@@ -1313,14 +1290,14 @@ const styles = StyleSheet.create({
   cardLeft: {
     flex: 1,
     minWidth: 0,
-    paddingRight: 14,
+    paddingRight: 10,
     flexDirection: 'column',
     gap: 4,
   },
   cardTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   colorDot: {
     width: 8,
@@ -1340,7 +1317,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   todayCapsuleText: {
-    fontSize: 10.5,
+    fontSize: 11,
     fontWeight: '600',
   },
   countsText: {
@@ -1354,7 +1331,7 @@ const styles = StyleSheet.create({
   cardRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 6,
     flexShrink: 0,
   },
   cardMenuBtn: {

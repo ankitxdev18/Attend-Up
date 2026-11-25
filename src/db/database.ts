@@ -44,6 +44,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   widgetMonth: '',
   pinHash: '',
   lastBackupAt: 0,
+  themeAccent: 'emerald',
 };
 
 const MAX_SAFETY_SNAPSHOTS = 15;
@@ -114,7 +115,8 @@ export async function initDatabase(): Promise<void> {
         widgetStyle TEXT NOT NULL DEFAULT 'heatmap',
         widgetMonth TEXT NOT NULL DEFAULT '',
         pinHash TEXT NOT NULL DEFAULT '',
-        lastBackupAt INTEGER NOT NULL DEFAULT 0
+        lastBackupAt INTEGER NOT NULL DEFAULT 0,
+        themeAccent TEXT NOT NULL DEFAULT 'emerald'
       );
       CREATE TABLE IF NOT EXISTS snapshots (
         id TEXT PRIMARY KEY NOT NULL,
@@ -147,6 +149,11 @@ export async function initDatabase(): Promise<void> {
         `ALTER TABLE settings ADD COLUMN lastBackupAt INTEGER NOT NULL DEFAULT 0;`
       );
     }
+    if (!colNames.has('themeAccent')) {
+      await db.execAsync(
+        `ALTER TABLE settings ADD COLUMN themeAccent TEXT NOT NULL DEFAULT 'emerald';`
+      );
+    }
 
     const subCols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(subjects)');
     const subColNames = new Set(subCols.map((c) => c.name));
@@ -175,8 +182,8 @@ export async function initDatabase(): Promise<void> {
       await db.runAsync(
         `INSERT INTO settings (
           id, lockAttendance, preferNote, darkMode, reminderEnabled, reminderTime,
-          reminderSubjectIds, widgetSubjectId, widgetStyle, widgetMonth, pinHash, lastBackupAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          reminderSubjectIds, widgetSubjectId, widgetStyle, widgetMonth, pinHash, lastBackupAt, themeAccent
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           'app',
           DEFAULT_SETTINGS.lockAttendance ? 1 : 0,
@@ -190,6 +197,7 @@ export async function initDatabase(): Promise<void> {
           DEFAULT_SETTINGS.widgetMonth,
           DEFAULT_SETTINGS.pinHash,
           DEFAULT_SETTINGS.lastBackupAt,
+          DEFAULT_SETTINGS.themeAccent,
         ]
       );
     }
@@ -276,9 +284,14 @@ export async function getAppSettings(): Promise<AppSettings> {
     widgetMonth: string;
     pinHash: string;
     lastBackupAt: number;
+    themeAccent: string;
   }>('SELECT * FROM settings WHERE id = ?', ['app']);
 
   if (!row) return DEFAULT_SETTINGS;
+  const validAccents = ['emerald', 'sapphire', 'violet', 'crimson', 'amber', 'cyan'];
+  const themeAccent = validAccents.includes(row.themeAccent)
+    ? (row.themeAccent as AppSettings['themeAccent'])
+    : 'emerald';
   return {
     id: 'app',
     lockAttendance: Boolean(row.lockAttendance),
@@ -292,6 +305,7 @@ export async function getAppSettings(): Promise<AppSettings> {
     widgetMonth: row.widgetMonth || '',
     pinHash: row.pinHash || '',
     lastBackupAt: Number(row.lastBackupAt) || 0,
+    themeAccent,
   };
 }
 
@@ -311,7 +325,7 @@ export async function updateAppSettings(patch: Partial<AppSettings>): Promise<Ap
     `UPDATE settings
      SET lockAttendance = ?, preferNote = ?, darkMode = ?, reminderEnabled = ?,
          reminderTime = ?, reminderSubjectIds = ?, widgetSubjectId = ?,
-         widgetStyle = ?, widgetMonth = ?, pinHash = ?, lastBackupAt = ?
+         widgetStyle = ?, widgetMonth = ?, pinHash = ?, lastBackupAt = ?, themeAccent = ?
      WHERE id = 'app'`,
     [
       next.lockAttendance ? 1 : 0,
@@ -325,6 +339,7 @@ export async function updateAppSettings(patch: Partial<AppSettings>): Promise<Ap
       next.widgetMonth ?? '',
       next.pinHash,
       Number(next.lastBackupAt) || 0,
+      next.themeAccent ?? 'emerald',
     ]
   );
   return next;

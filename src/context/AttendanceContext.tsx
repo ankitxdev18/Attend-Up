@@ -16,8 +16,15 @@ import type {
   SafetySnapshot,
   SortMode,
   Subject,
+  ThemeAccentId,
 } from '../types/attendance';
-import { DARK_PALETTE, LIGHT_PALETTE, type ThemePalette } from '../theme/tokens';
+import {
+  DARK_PALETTE,
+  getThemeAccentPreset,
+  LIGHT_PALETTE,
+  type ThemeAccentPreset,
+  type ThemePalette,
+} from '../theme/tokens';
 import {
   AttendanceLockedError,
   bulkSetAllStatusForDate,
@@ -65,6 +72,7 @@ interface AttendanceContextValue {
   sortMode: SortMode;
   setSortMode: (mode: SortMode) => void;
   palette: ThemePalette;
+  activeAccent: ThemeAccentPreset;
   isDark: boolean;
   lockedByPin: boolean;
   unlockApp: () => void;
@@ -76,6 +84,7 @@ interface AttendanceContextValue {
   dismissToast: () => void;
   refreshAll: () => Promise<void>;
   toggleDarkMode: () => Promise<void>;
+  updateThemeAccent: (presetId: ThemeAccentId) => Promise<void>;
   saveSettingsPatch: (patch: Partial<AppSettings>) => Promise<AppSettings>;
   saveSubject: (input: {
     id?: string;
@@ -251,22 +260,31 @@ export function AttendanceProvider({ children }: { children: React.ReactNode }) 
       }
     })();
 
-    const subscription = Notifications.addNotificationResponseReceivedListener(
-      async (response) => {
-        const result = await handleNotificationResponse(response);
-        if (result.handled) {
-          await refreshAll();
-          showToast(
-            `Marked ${result.status === 'present' ? 'Present' : 'Absent'} for ${result.count} subject(s)`,
-            'success'
-          );
+    let subscription: Notifications.EventSubscription | null = null;
+    try {
+      subscription = Notifications.addNotificationResponseReceivedListener(
+        async (response) => {
+          try {
+            const result = await handleNotificationResponse(response);
+            if (result.handled) {
+              await refreshAll();
+              showToast(
+                `Marked ${result.status === 'present' ? 'Present' : 'Absent'} for ${result.count} subject(s)`,
+                'success'
+              );
+            }
+          } catch {
+            // Ignore notification action handling errors.
+          }
         }
-      }
-    );
+      );
+    } catch {
+      // Ignore listener registration failures in unsupported runtimes.
+    }
 
     return () => {
       mounted = false;
-      subscription.remove();
+      subscription?.remove();
     };
   }, [refreshAll, showToast]);
 
@@ -304,6 +322,18 @@ export function AttendanceProvider({ children }: { children: React.ReactNode }) 
   const toggleDarkMode = useCallback(async () => {
     await saveSettingsPatch({ darkMode: !settings.darkMode });
   }, [saveSettingsPatch, settings.darkMode]);
+
+  const updateThemeAccent = useCallback(
+    async (presetId: ThemeAccentId) => {
+      await saveSettingsPatch({ themeAccent: presetId });
+    },
+    [saveSettingsPatch]
+  );
+
+  const activeAccent = useMemo(
+    () => getThemeAccentPreset(settings.themeAccent),
+    [settings.themeAccent]
+  );
 
   const saveSubject = useCallback(
     async (input: {
@@ -531,6 +561,7 @@ export function AttendanceProvider({ children }: { children: React.ReactNode }) 
     sortMode,
     setSortMode,
     palette,
+    activeAccent,
     isDark: settings.darkMode,
     lockedByPin,
     unlockApp,
@@ -539,6 +570,7 @@ export function AttendanceProvider({ children }: { children: React.ReactNode }) 
     dismissToast,
     refreshAll,
     toggleDarkMode,
+    updateThemeAccent,
     saveSettingsPatch,
     saveSubject,
     deleteSubject,

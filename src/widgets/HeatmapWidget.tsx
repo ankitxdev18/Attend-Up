@@ -1,5 +1,6 @@
 import React from 'react';
-import { FlexWidget, TextWidget } from 'react-native-android-widget';
+import { FlexWidget, SvgWidget, TextWidget } from 'react-native-android-widget';
+import { BRAND_LOGO_SVG } from '../components/BrandLogo';
 import type { AttendanceRecord, Subject } from '../types/attendance';
 import {
   computeAttendanceStats,
@@ -67,6 +68,10 @@ export function HeatmapWidget({ subject, records }: HeatmapWidgetProps) {
             flexGap: 6,
           }}
         >
+          <SvgWidget
+            svg={BRAND_LOGO_SVG}
+            style={{ width: 16, height: 16 }}
+          />
           <FlexWidget
             style={{
               width: 8,

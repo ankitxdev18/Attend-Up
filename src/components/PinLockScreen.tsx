@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { Delete, Lock } from 'lucide-react-native';
+import { Delete } from 'lucide-react-native';
+import { BrandLogo } from './BrandLogo';
 import { useAttendance } from '../context/AttendanceContext';
 import { verifyPin } from '../db/database';
 import {
@@ -87,14 +88,7 @@ export function PinLockScreen() {
     <AmbientCanvas tone="healthy">
       <SafeAreaView style={styles.container}>
       <View style={styles.top}>
-        <View
-          style={[
-            styles.iconCircle,
-            { backgroundColor: palette.card, borderColor: palette.border },
-          ]}
-        >
-          <Lock size={26} color={BRAND_COLORS.emeraldText} />
-        </View>
+        <BrandLogo size={56} />
         <Text
           style={[
             styles.title,

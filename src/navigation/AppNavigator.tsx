@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { BrandLogo } from '../components/BrandLogo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   createDrawerNavigator,
@@ -27,6 +28,7 @@ import {
   HEADING_STYLE,
   SEMANTIC_COLORS,
   TABULAR_NUMS,
+  THEME_ACCENT_PRESETS,
 } from '../theme/tokens';
 import type { HomeStackParamList, RootDrawerParamList } from './types';
 import { HomeScreen } from '../screens/HomeScreen';
@@ -66,8 +68,10 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
   const insets = useSafeAreaInsets();
   const {
     palette,
+    activeAccent,
     isDark,
     toggleDarkMode,
+    updateThemeAccent,
     overallPercentage,
     subjects,
     records,
@@ -116,12 +120,7 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
         <View style={styles.brandRow}>
           <View style={styles.brandCol}>
             <View style={styles.brandTitleRow}>
-              <Image
-                source={require('../../assets/icon.png')}
-                style={styles.brandMark}
-                resizeMode="contain"
-                accessibilityLabel="AttendUp logo"
-              />
+              <BrandLogo size={28} />
               <Text
                 style={[
                   styles.brandTitle,
@@ -134,15 +133,20 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
               <View
                 style={[
                   styles.offlinePill,
-                  { backgroundColor: BRAND_COLORS.emeraldPresentBg },
+                  { backgroundColor: activeAccent.tintBg },
                 ]}
               >
-                <View style={styles.offlineDot} />
+                <View
+                  style={[
+                    styles.offlineDot,
+                    { backgroundColor: activeAccent.primary },
+                  ]}
+                />
                 <Text
                   style={[
                     styles.offlineText,
                     {
-                      color: BRAND_COLORS.emeraldText,
+                      color: activeAccent.bright,
                       fontFamily: FONT_FAMILIES.sansSemiBold,
                     },
                   ]}
@@ -252,6 +256,30 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
             </Text>
           </View>
         </View>
+        {/* Quick Accent Swatch Row */}
+        <View style={styles.drawerSwatchRow}>
+          {THEME_ACCENT_PRESETS.map((preset) => {
+            const selected = preset.id === activeAccent.id;
+            return (
+              <Pressable
+                key={preset.id}
+                onPress={() => void updateThemeAccent(preset.id)}
+                accessibilityLabel={`Switch theme color to ${preset.label}`}
+                style={[
+                  styles.drawerSwatchOuter,
+                  { borderColor: selected ? preset.bright : 'transparent' },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.drawerSwatchDot,
+                    { backgroundColor: preset.primary },
+                  ]}
+                />
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
 
       {/* Primary Navigation Links */}
@@ -272,24 +300,24 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
                 styles.navItem,
                 {
                   backgroundColor: isActive
-                    ? BRAND_COLORS.emeraldPresentBg
+                    ? activeAccent.tintBg
                     : 'transparent',
                   borderColor: isActive
-                    ? 'rgba(16, 185, 129, 0.30)'
+                    ? activeAccent.borderTint
                     : 'transparent',
                 },
               ]}
             >
               <Icon
                 size={18}
-                color={isActive ? BRAND_COLORS.emeraldText : palette.textSecondary}
+                color={isActive ? activeAccent.bright : palette.textSecondary}
               />
               <Text
                 style={[
                   styles.navLabel,
                   {
                     color: isActive
-                      ? BRAND_COLORS.emeraldText
+                      ? activeAccent.bright
                       : palette.textPrimary,
                     fontFamily: isActive
                       ? FONT_FAMILIES.sansBold
@@ -585,5 +613,24 @@ const styles = StyleSheet.create({
   },
   quickJumpPct: {
     fontSize: 12,
+  },
+  drawerSwatchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 2,
+  },
+  drawerSwatchOuter: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  drawerSwatchDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
   },
 });

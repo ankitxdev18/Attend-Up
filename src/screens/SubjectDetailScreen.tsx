@@ -84,6 +84,7 @@ export function SubjectDetailScreen() {
     subjects,
     records,
     palette,
+    activeAccent,
     openRecordEditor,
     markDayStatus,
     saveSubject,
@@ -705,7 +706,7 @@ export function SubjectDetailScreen() {
                                 {
                                   backgroundColor: bgColor,
                                   borderColor: cell.isToday
-                                    ? BRAND_COLORS.emerald
+                                    ? activeAccent.primary
                                     : 'transparent',
                                   borderWidth: cell.isToday ? 1.5 : 0,
                                   opacity: cell.inCurrentMonth ? 1 : 0.3,
@@ -718,7 +719,7 @@ export function SubjectDetailScreen() {
                                   TABULAR_NUMS,
                                   {
                                     color: cell.isToday
-                                      ? BRAND_COLORS.emeraldText
+                                      ? activeAccent.bright
                                       : meta
                                         ? meta.color
                                         : palette.textPrimary,

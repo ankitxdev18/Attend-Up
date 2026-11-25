@@ -1,5 +1,6 @@
 import React from 'react';
-import { FlexWidget, TextWidget } from 'react-native-android-widget';
+import { FlexWidget, SvgWidget, TextWidget } from 'react-native-android-widget';
+import { BRAND_LOGO_SVG } from '../components/BrandLogo';
 import type { AttendanceRecord, AttendanceStatus, Subject } from '../types/attendance';
 import {
   formatMonthKey,
@@ -76,26 +77,39 @@ export function CalendarWidget({ subject, records, monthKey }: CalendarWidgetPro
           marginBottom: 6,
         }}
       >
-        <FlexWidget style={{ flex: 1, flexDirection: 'column' }}>
-          <TextWidget
-            text={monthLabel}
-            maxLines={1}
-            style={{
-              color: '#FAFAFA',
-              fontSize: 13,
-              fontWeight: '700',
-            }}
+        <FlexWidget
+          style={{
+            flex: 1,
+            flexDirection: 'row',
+            alignItems: 'center',
+            flexGap: 8,
+          }}
+        >
+          <SvgWidget
+            svg={BRAND_LOGO_SVG}
+            style={{ width: 18, height: 18 }}
           />
-          <TextWidget
-            text={subject.name}
-            maxLines={1}
-            truncate="END"
-            style={{
-              color: '#A1A1AA',
-              fontSize: 10,
-              fontWeight: '500',
-            }}
-          />
+          <FlexWidget style={{ flex: 1, flexDirection: 'column' }}>
+            <TextWidget
+              text={monthLabel}
+              maxLines={1}
+              style={{
+                color: '#FAFAFA',
+                fontSize: 13,
+                fontWeight: '700',
+              }}
+            />
+            <TextWidget
+              text={subject.name}
+              maxLines={1}
+              truncate="END"
+              style={{
+                color: '#A1A1AA',
+                fontSize: 10,
+                fontWeight: '500',
+              }}
+            />
+          </FlexWidget>
         </FlexWidget>
 
         <FlexWidget

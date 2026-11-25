@@ -1,4 +1,79 @@
 import type { TextStyle, ViewStyle } from 'react-native';
+import type { ThemeAccentId } from '../types/attendance';
+
+export interface ThemeAccentPreset {
+  id: ThemeAccentId;
+  label: string;
+  primary: string;
+  bright: string;
+  glow: string;
+  tintBg: string;
+  borderTint: string;
+}
+
+export const THEME_ACCENT_PRESETS: readonly ThemeAccentPreset[] = [
+  {
+    id: 'emerald',
+    label: 'Emerald',
+    primary: '#10B981',
+    bright: '#34D399',
+    glow: '#059669',
+    tintBg: 'rgba(16, 185, 129, 0.16)',
+    borderTint: 'rgba(16, 185, 129, 0.34)',
+  },
+  {
+    id: 'sapphire',
+    label: 'Sapphire',
+    primary: '#3B82F6',
+    bright: '#60A5FA',
+    glow: '#2563EB',
+    tintBg: 'rgba(59, 130, 246, 0.16)',
+    borderTint: 'rgba(59, 130, 246, 0.34)',
+  },
+  {
+    id: 'violet',
+    label: 'Violet',
+    primary: '#8B5CF6',
+    bright: '#A78BFA',
+    glow: '#7C3AED',
+    tintBg: 'rgba(139, 92, 246, 0.16)',
+    borderTint: 'rgba(139, 92, 246, 0.34)',
+  },
+  {
+    id: 'crimson',
+    label: 'Crimson',
+    primary: '#F43F5E',
+    bright: '#FB7185',
+    glow: '#E11D48',
+    tintBg: 'rgba(244, 63, 94, 0.16)',
+    borderTint: 'rgba(244, 63, 94, 0.34)',
+  },
+  {
+    id: 'amber',
+    label: 'Amber',
+    primary: '#F59E0B',
+    bright: '#FBBF24',
+    glow: '#D97706',
+    tintBg: 'rgba(245, 158, 11, 0.16)',
+    borderTint: 'rgba(245, 158, 11, 0.34)',
+  },
+  {
+    id: 'cyan',
+    label: 'Cyan',
+    primary: '#06B6D4',
+    bright: '#22D3EE',
+    glow: '#0891B2',
+    tintBg: 'rgba(6, 182, 212, 0.16)',
+    borderTint: 'rgba(6, 182, 212, 0.34)',
+  },
+] as const;
+
+export function getThemeAccentPreset(id?: string | null): ThemeAccentPreset {
+  return (
+    THEME_ACCENT_PRESETS.find((preset) => preset.id === id) ??
+    THEME_ACCENT_PRESETS[0]
+  );
+}
 
 export const BRAND_COLORS = {
   emerald: '#10B981',

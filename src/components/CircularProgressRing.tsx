@@ -7,8 +7,8 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { useAttendance } from '../context/AttendanceContext';
 import {
-  BRAND_COLORS,
   FONT_FAMILIES,
   SEMANTIC_COLORS,
   TABULAR_NUMS,
@@ -24,6 +24,7 @@ interface CircularProgressRingProps {
   strokeWidth?: number;
   trackColor: string;
   textColor: string;
+  accentColor?: string;
 }
 
 export function CircularProgressRing({
@@ -34,7 +35,9 @@ export function CircularProgressRing({
   strokeWidth = 5,
   trackColor,
   textColor,
+  accentColor,
 }: CircularProgressRingProps) {
+  const { activeAccent } = useAttendance();
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const clamped = Math.min(100, Math.max(0, percentage));
@@ -55,7 +58,7 @@ export function CircularProgressRing({
   const activeColor = !hasData
     ? trackColor
     : percentage >= targetPercentage
-      ? BRAND_COLORS.emerald
+      ? (accentColor ?? activeAccent.primary)
       : SEMANTIC_COLORS.absent;
 
   const displayLabel = hasData ? `${Math.round(percentage)}%` : '0%';

@@ -23,7 +23,6 @@ import {
   type ReportScope,
 } from '../lib/reports';
 import {
-  BRAND_COLORS,
   FONT_FAMILIES,
   HEADING_STYLE,
   SEMANTIC_COLORS,
@@ -34,7 +33,7 @@ import { AmbientCanvas, MinimalMenuIcon } from '../components/AmbientCanvas';
 
 export function ReportsScreen() {
   const drawerNav = useNavigation<DrawerNavigationProp<RootDrawerParamList>>();
-  const { subjects, records, palette, showToast } = useAttendance();
+  const { subjects, records, palette, activeAccent, showToast } = useAttendance();
 
   const [subjectId, setSubjectId] = useState<string | 'all'>('all');
   const [scope, setScope] = useState<ReportScope>('this_month');
@@ -369,7 +368,7 @@ export function ReportsScreen() {
             style={[
               styles.exportBtn,
               {
-                backgroundColor: BRAND_COLORS.emerald,
+                backgroundColor: activeAccent.primary,
                 opacity: busy === 'pdf' ? 0.7 : 1,
               },
             ]}

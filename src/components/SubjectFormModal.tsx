@@ -45,7 +45,7 @@ function SubjectFormBody({
   editingSubject: Subject | null;
   onClose: () => void;
 }) {
-  const { palette, saveSubject, showToast } = useAttendance();
+  const { palette, activeAccent, saveSubject, showToast } = useAttendance();
   const [name, setName] = useState(editingSubject?.name ?? '');
   const [target, setTarget] = useState(
     String(editingSubject?.targetPercentage ?? 75)
@@ -275,7 +275,7 @@ function SubjectFormBody({
           <Switch
             value={autoMarkSundays}
             onValueChange={setAutoMarkSundays}
-            trackColor={{ false: palette.control, true: BRAND_COLORS.emerald }}
+            trackColor={{ false: palette.control, true: activeAccent.primary }}
             thumbColor="#FFFFFF"
           />
         </View>
@@ -302,7 +302,7 @@ function SubjectFormBody({
           <Pressable
             onPress={handleSubmit}
             disabled={submitting}
-            style={[styles.saveBtn, { backgroundColor: BRAND_COLORS.emerald }]}
+            style={[styles.saveBtn, { backgroundColor: activeAccent.primary }]}
           >
             <Text
               style={[

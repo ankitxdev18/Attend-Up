@@ -52,7 +52,7 @@ function RecordEditorBody({
   lockAttendance,
   onClose,
 }: RecordEditorBodyProps) {
-  const { palette, saveFullRecord, showToast } = useAttendance();
+  const { palette, activeAccent, saveFullRecord, showToast } = useAttendance();
   const noteInputRef = useRef<React.ComponentRef<typeof BottomSheetTextInput>>(null);
 
   const [status, setStatus] = useState<AttendanceStatus>(existingRecord?.status ?? null);
@@ -480,7 +480,7 @@ function RecordEditorBody({
             style={[
               styles.saveBtn,
               {
-                backgroundColor: BRAND_COLORS.emerald,
+                backgroundColor: activeAccent.primary,
                 opacity: saving || isFutureDate ? 0.6 : 1,
               },
             ]}

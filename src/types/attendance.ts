@@ -11,6 +11,14 @@ export type ShiftType = 'Morning' | 'Regular' | 'Evening' | 'Lab' | '';
 
 export type WidgetStyle = 'heatmap' | 'calendar';
 
+export type ThemeAccentId =
+  | 'emerald'
+  | 'sapphire'
+  | 'violet'
+  | 'crimson'
+  | 'amber'
+  | 'cyan';
+
 export interface Subject {
   id: string;
   name: string;
@@ -45,6 +53,7 @@ export interface AppSettings {
   widgetMonth: string; // "YYYY-MM" or ''
   pinHash: string;
   lastBackupAt: number;
+  themeAccent: ThemeAccentId;
 }
 
 export interface SafetySnapshot {
