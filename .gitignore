@@ -36,6 +36,10 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-# generated native folders
+# generated native & build folders
 /ios
 /android
+android/build/
+android/app/build/
+*.keystore
+.tmp-bundle-check/
