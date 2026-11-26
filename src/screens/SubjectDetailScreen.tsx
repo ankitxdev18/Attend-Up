@@ -18,7 +18,6 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   Gesture,
   GestureDetector,
-  TouchableOpacity as GHTouchableOpacity,
 } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
@@ -121,19 +120,18 @@ const CalendarDayCell = React.memo(function CalendarDayCell({
 
   return (
     <View style={styles.dayCellSlot}>
-      <GHTouchableOpacity
-        activeOpacity={0.75}
+      <Pressable
         onPress={() => onSelectDay(dateISO)}
         onLongPress={() => onLongPressDay(dateISO)}
         accessibilityRole="button"
         accessibilityLabel={`${dateISO}${statusShort ? `, ${statusShort}` : ''}${isToday ? ', Today' : ''}`}
-        style={[
+        style={({ pressed }) => [
           styles.dayCell,
           {
             backgroundColor: tileBg,
             borderColor: outerBorderColor,
             borderWidth: outerBorderWidth,
-            opacity: inCurrentMonth ? 1 : 0.3,
+            opacity: !inCurrentMonth ? 0.3 : pressed ? 0.75 : 1,
           },
         ]}
       >
@@ -180,7 +178,7 @@ const CalendarDayCell = React.memo(function CalendarDayCell({
             ) : null}
           </View>
         ) : null}
-      </GHTouchableOpacity>
+      </Pressable>
     </View>
   );
 });
@@ -1177,7 +1175,7 @@ export function SubjectDetailScreen() {
             ]}
           >
             <View style={styles.analyticsTopRow}>
-              <View>
+              <View style={styles.analyticsLeftCol}>
                 <Text
                   style={[
                     styles.pctBig,
@@ -1187,7 +1185,7 @@ export function SubjectDetailScreen() {
                 >
                   {stats.totalCounted > 0
                     ? formatPercent(stats.percentage, 1)
-                    : '0.00%'}
+                    : '0.0%'}
                 </Text>
                 <Text
                   style={[
@@ -1210,13 +1208,14 @@ export function SubjectDetailScreen() {
                   ]}
                 >
                   <Text
+                    numberOfLines={1}
                     style={[
                       styles.weeklyPillText,
                       TABULAR_NUMS,
                       { color: BRAND_COLORS.bright, fontFamily: FONT_FAMILIES.monoBold },
                     ]}
                   >
-                    This Week: {weeklyStats.attended}/{weeklyStats.total} attended
+                    Week: {weeklyStats.attended}/{weeklyStats.total}
                   </Text>
                 </View>
 
@@ -2261,25 +2260,25 @@ const styles = StyleSheet.create({
   },
   weeksWrap: {
     width: '100%',
-    gap: 4,
+    gap: 5,
   },
   weekRow: {
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
   },
   dayCellSlot: {
     flex: 1,
     minWidth: 0,
-    height: 48,
-    alignItems: 'center',
+    paddingHorizontal: 2.5,
+    height: 46,
+    alignItems: 'stretch',
     justifyContent: 'center',
   },
   dayCell: {
     width: '100%',
-    height: 48,
-    borderRadius: 12,
+    height: 46,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
@@ -2764,7 +2763,13 @@ const styles = StyleSheet.create({
   dateActionBtnText: {
     fontSize: 12.5,
   },
+  analyticsLeftCol: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: 10,
+  },
   scopeRightCol: {
+    flexShrink: 0,
     alignItems: 'flex-end',
     gap: 6,
   },
