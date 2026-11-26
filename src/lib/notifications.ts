@@ -15,20 +15,24 @@ function isExpoGo(): boolean {
   return Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 }
 
-try {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-      shouldShowBanner: true,
-      shouldShowList: true,
-    }),
-  });
-} catch {
-  // Ignore notification handler registration failures in unsupported runtimes.
-}
+let handlerRegistered = false;
 
 export async function configureNotifications(): Promise<void> {
+  if (!handlerRegistered) {
+    handlerRegistered = true;
+    try {
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldPlaySound: true,
+          shouldSetBadge: false,
+          shouldShowBanner: true,
+          shouldShowList: true,
+        }),
+      });
+    } catch {
+      // Ignore notification handler registration failures in unsupported runtimes.
+    }
+  }
   if (Platform.OS === 'android' && !isExpoGo()) {
     try {
       await Notifications.setNotificationChannelAsync(REMINDER_CHANNEL_ID, {

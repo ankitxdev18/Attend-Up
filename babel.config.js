@@ -30,11 +30,13 @@ function stripProductionConsolePlugin({ types: t }) {
 module.exports = function (api) {
   api.cache.using(() => process.env.NODE_ENV);
   const isProd = process.env.NODE_ENV === 'production';
+  const plugins = isProd ? [stripProductionConsolePlugin] : [];
+  plugins.push('react-native-reanimated/plugin');
   return {
     presets: [
       ['babel-preset-expo', { jsxImportSource: 'nativewind' }],
       'nativewind/babel',
     ],
-    plugins: isProd ? [stripProductionConsolePlugin] : [],
+    plugins,
   };
 };
