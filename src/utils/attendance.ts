@@ -153,7 +153,7 @@ export function computeAttendanceStats(
   let safeToBunk = 0;
   const countedWord = totalCounted === 1 ? 'class' : 'classes';
   const countsSummary = `${present}P · ${absent}A · ${totalCounted} ${countedWord}`;
-  let predictorLine = 'No classes logged yet';
+  let predictorLine = 'No classes logged';
 
   if (totalCounted > 0) {
     if (percentage < target) {
@@ -172,10 +172,10 @@ export function computeAttendanceStats(
         Math.floor((attendedUnits - targetRatio * totalCounted) / targetRatio)
       );
       if (safeToBunk > 0) {
-        const clsWord = safeToBunk === 1 ? 'class' : 'classes';
-        predictorLine = `Safe to bunk ${safeToBunk} ${clsWord}`;
+        const bunkWord = safeToBunk === 1 ? 'bunk' : 'bunks';
+        predictorLine = `Safe · ${safeToBunk} ${bunkWord} left`;
       } else {
-        predictorLine = `On track for ${target}%`;
+        predictorLine = `On track · ${target}% target`;
       }
     }
   }

@@ -1,12 +1,14 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, useWindowDimensions, View, type ViewProps } from 'react-native';
+import { AppState, StyleSheet, useWindowDimensions, View, type ViewProps } from 'react-native';
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import Animated, {
+  cancelAnimation,
   Easing,
   interpolate,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
+  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 import { useAttendance } from '../context/AttendanceContext';
@@ -17,11 +19,75 @@ interface AmbientBackgroundProps extends ViewProps {
   children: React.ReactNode;
 }
 
+const CYCLE_DURATION_MS = 14000;
+
+interface OrbSvgProps {
+  primaryColor: string;
+  glowColor: string;
+  fadeTarget: string;
+  isDark: boolean;
+}
+
+const PrimaryPerimeterOrbSvg = React.memo(function PrimaryPerimeterOrbSvg({
+  primaryColor,
+  glowColor,
+  fadeTarget,
+  isDark,
+}: OrbSvgProps) {
+  return (
+    <Svg width={440} height={440} viewBox="0 0 440 440">
+      <Defs>
+        <RadialGradient id="perimeterPrimaryGrad" cx="50%" cy="50%" r="50%">
+          <Stop
+            offset="0%"
+            stopColor={primaryColor}
+            stopOpacity={isDark ? '0.44' : '0.26'}
+          />
+          <Stop
+            offset="50%"
+            stopColor={glowColor}
+            stopOpacity={isDark ? '0.15' : '0.10'}
+          />
+          <Stop offset="100%" stopColor={fadeTarget} stopOpacity="0" />
+        </RadialGradient>
+      </Defs>
+      <Circle cx="220" cy="220" r="220" fill="url(#perimeterPrimaryGrad)" />
+    </Svg>
+  );
+});
+
+const OppositePerimeterOrbSvg = React.memo(function OppositePerimeterOrbSvg({
+  primaryColor,
+  glowColor,
+  fadeTarget,
+  isDark,
+}: OrbSvgProps) {
+  return (
+    <Svg width={400} height={400} viewBox="0 0 400 400">
+      <Defs>
+        <RadialGradient id="perimeterOppositeGrad" cx="50%" cy="50%" r="50%">
+          <Stop
+            offset="0%"
+            stopColor={glowColor}
+            stopOpacity={isDark ? '0.32' : '0.20'}
+          />
+          <Stop
+            offset="55%"
+            stopColor={primaryColor}
+            stopOpacity={isDark ? '0.10' : '0.07'}
+          />
+          <Stop offset="100%" stopColor={fadeTarget} stopOpacity="0" />
+        </RadialGradient>
+      </Defs>
+      <Circle cx="200" cy="200" r="200" fill="url(#perimeterOppositeGrad)" />
+    </Svg>
+  );
+});
+
 /**
  * Full-screen 4-edge perimeter Gemini-style ambient light background.
- * Two opposite-phase SVG RadialGradient orbs travel continuously around
- * all 4 screen boundaries (Top -> Right -> Bottom -> Left -> Top) using
- * the user-selected activeAccent color without ever restarting on color change.
+ * Runs 100% on the native UI thread via Reanimated, memoizes SVG gradients,
+ * and pauses automatically when the app enters the background.
  */
 export function AmbientBackground({
   tone: _tone,
@@ -35,11 +101,42 @@ export function AmbientBackground({
   const perimeterProgress = useSharedValue(0);
 
   useEffect(() => {
-    perimeterProgress.value = withRepeat(
-      withTiming(1, { duration: 14000, easing: Easing.linear }),
-      -1,
-      false
-    );
+    const startPerimeterAnimation = () => {
+      const current = perimeterProgress.value % 1;
+      const remainingMs = Math.max(100, Math.round((1 - current) * CYCLE_DURATION_MS));
+      if (current > 0.001) {
+        perimeterProgress.value = withSequence(
+          withTiming(1, { duration: remainingMs, easing: Easing.linear }),
+          withTiming(0, { duration: 0 }),
+          withRepeat(
+            withTiming(1, { duration: CYCLE_DURATION_MS, easing: Easing.linear }),
+            -1,
+            false
+          )
+        );
+      } else {
+        perimeterProgress.value = withRepeat(
+          withTiming(1, { duration: CYCLE_DURATION_MS, easing: Easing.linear }),
+          -1,
+          false
+        );
+      }
+    };
+
+    startPerimeterAnimation();
+
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        startPerimeterAnimation();
+      } else {
+        cancelAnimation(perimeterProgress);
+      }
+    });
+
+    return () => {
+      sub.remove();
+      cancelAnimation(perimeterProgress);
+    };
   }, [perimeterProgress]);
 
   // Primary Edge Orb (440x440, center offset 220): Top-Left -> Top-Right -> Bottom-Right -> Bottom-Left -> Top-Left
@@ -86,48 +183,22 @@ export function AmbientBackground({
       {...rest}
     >
       <View pointerEvents="none" style={styles.ambientContainer}>
-        {/* Primary Edge Orb: 440x440 */}
         <Animated.View style={[styles.primaryOrbWrap, primaryOrbStyle]}>
-          <Svg width={440} height={440} viewBox="0 0 440 440">
-            <Defs>
-              <RadialGradient id="perimeterPrimaryGrad" cx="50%" cy="50%" r="50%">
-                <Stop
-                  offset="0%"
-                  stopColor={activeAccent.primary}
-                  stopOpacity={isDark ? '0.44' : '0.26'}
-                />
-                <Stop
-                  offset="50%"
-                  stopColor={activeAccent.glow}
-                  stopOpacity={isDark ? '0.15' : '0.10'}
-                />
-                <Stop offset="100%" stopColor={fadeTarget} stopOpacity="0" />
-              </RadialGradient>
-            </Defs>
-            <Circle cx="220" cy="220" r="220" fill="url(#perimeterPrimaryGrad)" />
-          </Svg>
+          <PrimaryPerimeterOrbSvg
+            primaryColor={activeAccent.primary}
+            glowColor={activeAccent.glow}
+            fadeTarget={fadeTarget}
+            isDark={isDark}
+          />
         </Animated.View>
 
-        {/* Counter-Phase Opposite Edge Orb: 400x400 */}
         <Animated.View style={[styles.oppositeOrbWrap, oppositeOrbStyle]}>
-          <Svg width={400} height={400} viewBox="0 0 400 400">
-            <Defs>
-              <RadialGradient id="perimeterOppositeGrad" cx="50%" cy="50%" r="50%">
-                <Stop
-                  offset="0%"
-                  stopColor={activeAccent.glow}
-                  stopOpacity={isDark ? '0.32' : '0.20'}
-                />
-                <Stop
-                  offset="55%"
-                  stopColor={activeAccent.primary}
-                  stopOpacity={isDark ? '0.10' : '0.07'}
-                />
-                <Stop offset="100%" stopColor={fadeTarget} stopOpacity="0" />
-              </RadialGradient>
-            </Defs>
-            <Circle cx="200" cy="200" r="200" fill="url(#perimeterOppositeGrad)" />
-          </Svg>
+          <OppositePerimeterOrbSvg
+            primaryColor={activeAccent.primary}
+            glowColor={activeAccent.glow}
+            fadeTarget={fadeTarget}
+            isDark={isDark}
+          />
         </Animated.View>
       </View>
 

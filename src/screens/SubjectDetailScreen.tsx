@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -71,9 +71,133 @@ import {
 } from '../theme/tokens';
 import { AmbientCanvas } from '../components/AmbientCanvas';
 import { CircularProgressRing } from '../components/CircularProgressRing';
+import { TactilePressable } from '../components/TactilePressable';
 
 const WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const HEATMAP_DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+interface CalendarDayCellProps {
+  dateISO: string;
+  dayNumber: number;
+  inCurrentMonth: boolean;
+  isToday: boolean;
+  bgColor: string;
+  todayBorderColor: string;
+  todayTextColor: string;
+  defaultTextColor: string;
+  statusColor: string | null;
+  statusShort: string | null;
+  hasNote: boolean;
+  hasOt: boolean;
+  onPressDay: (dateISO: string) => void;
+}
+
+const CalendarDayCell = React.memo(function CalendarDayCell({
+  dateISO,
+  dayNumber,
+  inCurrentMonth,
+  isToday,
+  bgColor,
+  todayBorderColor,
+  todayTextColor,
+  defaultTextColor,
+  statusColor,
+  statusShort,
+  hasNote,
+  hasOt,
+  onPressDay,
+}: CalendarDayCellProps) {
+  return (
+    <View style={styles.dayCellSlot}>
+      <GHTouchableOpacity
+        activeOpacity={0.75}
+        onPress={() => onPressDay(dateISO)}
+        style={[
+          styles.dayCell,
+          {
+            backgroundColor: bgColor,
+            borderColor: isToday ? todayBorderColor : 'transparent',
+            borderWidth: isToday ? 1.5 : 0,
+            opacity: inCurrentMonth ? 1 : 0.3,
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.dayNum,
+            TABULAR_NUMS,
+            {
+              color: isToday
+                ? todayTextColor
+                : statusColor ?? defaultTextColor,
+              fontFamily: isToday
+                ? FONT_FAMILIES.monoBold
+                : FONT_FAMILIES.monoMedium,
+            },
+          ]}
+        >
+          {dayNumber}
+        </Text>
+
+        <View style={styles.microRow}>
+          {statusShort && statusColor ? (
+            <View style={[styles.microBadge, { backgroundColor: statusColor }]}>
+              <Text style={[styles.microStatus, { fontFamily: FONT_FAMILIES.sansBold }]}>
+                {statusShort}
+              </Text>
+            </View>
+          ) : null}
+          {hasNote ? (
+            <View
+              style={[
+                styles.microDot,
+                { backgroundColor: BRAND_COLORS.emeraldText },
+              ]}
+            />
+          ) : null}
+          {hasOt ? (
+            <View
+              style={[
+                styles.microDot,
+                { backgroundColor: SEMANTIC_COLORS.halfDay },
+              ]}
+            />
+          ) : null}
+        </View>
+      </GHTouchableOpacity>
+    </View>
+  );
+});
+
+interface HeatmapSquareProps {
+  dateISO: string;
+  isToday: boolean;
+  cellBg: string;
+  todayBorderColor: string;
+  onPressDay: (dateISO: string) => void;
+}
+
+const HeatmapSquare = React.memo(function HeatmapSquare({
+  dateISO,
+  isToday,
+  cellBg,
+  todayBorderColor,
+  onPressDay,
+}: HeatmapSquareProps) {
+  return (
+    <Pressable
+      onPress={() => onPressDay(dateISO)}
+      style={[
+        styles.heatmapSquare,
+        {
+          backgroundColor: cellBg,
+          borderColor: isToday ? todayBorderColor : 'transparent',
+          borderWidth: isToday ? 1.5 : 0,
+        },
+      ]}
+    />
+  );
+});
 
 export function SubjectDetailScreen() {
   const stackNav = useNavigation<NativeStackNavigationProp<HomeStackParamList>>();
@@ -105,7 +229,7 @@ export function SubjectDetailScreen() {
   const [noteQuery, setNoteQuery] = useState('');
 
   // What-If Bunk & Attendance Simulator Modal state
-  const [simOpen, setSimOpen] = useState(false);
+  const [simOpen, setSimOpen] = useState(Boolean(route.params.openSimulator));
   const [simPresent, setSimPresent] = useState(0);
   const [simAbsent, setSimAbsent] = useState(0);
 
@@ -120,6 +244,15 @@ export function SubjectDetailScreen() {
   const todayISO = formatDateISO(new Date());
   const subjectId = subject?.id;
   const autoMarkSundays = subject?.autoMarkSundays ?? true;
+
+  const handleOpenDay = useCallback(
+    (dateISO: string) => {
+      if (!subjectId) return;
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      openRecordEditor(subjectId, dateISO);
+    },
+    [openRecordEditor, subjectId]
+  );
 
   const subjectRecords = useMemo(() => {
     if (!subjectId) return [];
@@ -694,81 +827,22 @@ export function SubjectDetailScreen() {
                             : 'transparent';
 
                         return (
-                          <View key={cell.dateISO} style={styles.dayCellSlot}>
-                            <GHTouchableOpacity
-                              activeOpacity={0.75}
-                              onPress={() => {
-                                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                openRecordEditor(subject.id, cell.dateISO);
-                              }}
-                              style={[
-                                styles.dayCell,
-                                {
-                                  backgroundColor: bgColor,
-                                  borderColor: cell.isToday
-                                    ? activeAccent.primary
-                                    : 'transparent',
-                                  borderWidth: cell.isToday ? 1.5 : 0,
-                                  opacity: cell.inCurrentMonth ? 1 : 0.3,
-                                },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.dayNum,
-                                  TABULAR_NUMS,
-                                  {
-                                    color: cell.isToday
-                                      ? activeAccent.bright
-                                      : meta
-                                        ? meta.color
-                                        : palette.textPrimary,
-                                    fontFamily: cell.isToday
-                                      ? FONT_FAMILIES.monoBold
-                                      : FONT_FAMILIES.monoMedium,
-                                  },
-                                ]}
-                              >
-                                {cell.dayNumber}
-                              </Text>
-
-                              <View style={styles.microRow}>
-                                {meta ? (
-                                  <View
-                                    style={[
-                                      styles.microBadge,
-                                      { backgroundColor: meta.color },
-                                    ]}
-                                  >
-                                    <Text
-                                      style={[
-                                        styles.microStatus,
-                                        { fontFamily: FONT_FAMILIES.sansBold },
-                                      ]}
-                                    >
-                                      {meta.short}
-                                    </Text>
-                                  </View>
-                                ) : null}
-                                {hasNote ? (
-                                  <View
-                                    style={[
-                                      styles.microDot,
-                                      { backgroundColor: BRAND_COLORS.emeraldText },
-                                    ]}
-                                  />
-                                ) : null}
-                                {hasOt ? (
-                                  <View
-                                    style={[
-                                      styles.microDot,
-                                      { backgroundColor: SEMANTIC_COLORS.halfDay },
-                                    ]}
-                                  />
-                                ) : null}
-                              </View>
-                            </GHTouchableOpacity>
-                          </View>
+                          <CalendarDayCell
+                            key={cell.dateISO}
+                            dateISO={cell.dateISO}
+                            dayNumber={cell.dayNumber}
+                            inCurrentMonth={cell.inCurrentMonth}
+                            isToday={cell.isToday}
+                            bgColor={bgColor}
+                            todayBorderColor={activeAccent.primary}
+                            todayTextColor={activeAccent.bright}
+                            defaultTextColor={palette.textPrimary}
+                            statusColor={meta ? meta.color : null}
+                            statusShort={meta ? meta.short : null}
+                            hasNote={hasNote}
+                            hasOt={hasOt}
+                            onPressDay={handleOpenDay}
+                          />
                         );
                       })}
                     </View>
@@ -854,22 +928,13 @@ export function SubjectDetailScreen() {
                                 : palette.control;
 
                         return (
-                          <Pressable
+                          <HeatmapSquare
                             key={cell.dateISO}
-                            onPress={() => {
-                              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                              openRecordEditor(subject.id, cell.dateISO);
-                            }}
-                            style={[
-                              styles.heatmapSquare,
-                              {
-                                backgroundColor: cellBg,
-                                borderColor: cell.isToday
-                                  ? palette.textPrimary
-                                  : 'transparent',
-                                borderWidth: cell.isToday ? 1.5 : 0,
-                              },
-                            ]}
+                            dateISO={cell.dateISO}
+                            isToday={cell.isToday}
+                            cellBg={cellBg}
+                            todayBorderColor={palette.textPrimary}
+                            onPressDay={handleOpenDay}
                           />
                         );
                       })}
@@ -1661,12 +1726,12 @@ export function SubjectDetailScreen() {
                   Attend
                 </Text>
                 <View style={styles.simStepperBtns}>
-                  <Pressable
+                  <TactilePressable
                     onPress={() => setSimPresent((v) => Math.max(0, v - 1))}
                     style={[styles.simStepBtn, { backgroundColor: palette.card }]}
                   >
                     <Minus size={18} color={palette.textPrimary} />
-                  </Pressable>
+                  </TactilePressable>
                   <Text
                     style={[
                       styles.simStepVal,
@@ -1676,15 +1741,12 @@ export function SubjectDetailScreen() {
                   >
                     +{simPresent}
                   </Text>
-                  <Pressable
-                    onPress={() => {
-                      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setSimPresent((v) => Math.min(50, v + 1));
-                    }}
-                    style={[styles.simStepBtn, { backgroundColor: BRAND_COLORS.emerald }]}
+                  <TactilePressable
+                    onPress={() => setSimPresent((v) => Math.min(50, v + 1))}
+                    style={[styles.simStepBtn, { backgroundColor: activeAccent.primary }]}
                   >
                     <Plus size={18} color="#050608" />
-                  </Pressable>
+                  </TactilePressable>
                 </View>
               </View>
 
@@ -1706,12 +1768,12 @@ export function SubjectDetailScreen() {
                   Bunk / Skip
                 </Text>
                 <View style={styles.simStepperBtns}>
-                  <Pressable
+                  <TactilePressable
                     onPress={() => setSimAbsent((v) => Math.max(0, v - 1))}
                     style={[styles.simStepBtn, { backgroundColor: palette.card }]}
                   >
                     <Minus size={18} color={palette.textPrimary} />
-                  </Pressable>
+                  </TactilePressable>
                   <Text
                     style={[
                       styles.simStepVal,
@@ -1721,15 +1783,12 @@ export function SubjectDetailScreen() {
                   >
                     +{simAbsent}
                   </Text>
-                  <Pressable
-                    onPress={() => {
-                      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setSimAbsent((v) => Math.min(50, v + 1));
-                    }}
+                  <TactilePressable
+                    onPress={() => setSimAbsent((v) => Math.min(50, v + 1))}
                     style={[styles.simStepBtn, { backgroundColor: SEMANTIC_COLORS.absent }]}
                   >
                     <Plus size={18} color="#050608" />
-                  </Pressable>
+                  </TactilePressable>
                 </View>
               </View>
             </View>

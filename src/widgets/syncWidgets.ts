@@ -3,11 +3,12 @@ import { getAllRecords, getAllSubjects, getAppSettings } from '../db/database';
 import { isNativeWidgetSupported } from '../lib/nativeWidgetSupport';
 import { formatMonthKey } from '../utils/attendance';
 
-/**
- * Pushes updated SQLite attendance data to any active Android Home Screen widgets.
- * Safely no-ops on non-Android platforms, Expo Go, or if widgets are not pinned.
- */
-export async function refreshAllWidgets(): Promise<void> {
+const WIDGET_SYNC_DEBOUNCE_MS = 250;
+
+let syncTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingResolvers: (() => void)[] = [];
+
+async function executeWidgetRefresh(): Promise<void> {
   if (!isNativeWidgetSupported()) return;
 
   try {
@@ -50,4 +51,30 @@ export async function refreshAllWidgets(): Promise<void> {
   } catch {
     // Ignore errors when native widget receiver is unavailable.
   }
+}
+
+/**
+ * Pushes updated SQLite attendance data to any active Android Home Screen widgets.
+ * Debounced by 250ms so rapid attendance taps coalesce into a single widget redraw.
+ * Safely no-ops on non-Android platforms, Expo Go, or if widgets are not pinned.
+ */
+export function refreshAllWidgets(): Promise<void> {
+  if (!isNativeWidgetSupported()) return Promise.resolve();
+
+  return new Promise((resolve) => {
+    pendingResolvers.push(resolve);
+    if (syncTimer) {
+      clearTimeout(syncTimer);
+    }
+    syncTimer = setTimeout(() => {
+      syncTimer = null;
+      const resolvers = pendingResolvers;
+      pendingResolvers = [];
+      void executeWidgetRefresh().finally(() => {
+        for (const res of resolvers) {
+          res();
+        }
+      });
+    }, WIDGET_SYNC_DEBOUNCE_MS);
+  });
 }

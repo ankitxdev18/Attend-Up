@@ -27,7 +27,7 @@ interface CircularProgressRingProps {
   accentColor?: string;
 }
 
-export function CircularProgressRing({
+export const CircularProgressRing = React.memo(function CircularProgressRing({
   percentage,
   targetPercentage,
   hasData,
@@ -101,7 +101,7 @@ export function CircularProgressRing({
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

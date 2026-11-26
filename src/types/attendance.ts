@@ -54,6 +54,7 @@ export interface AppSettings {
   pinHash: string;
   lastBackupAt: number;
   themeAccent: ThemeAccentId;
+  semesterEndDate: string; // "YYYY-MM-DD" or ''
 }
 
 export interface SafetySnapshot {

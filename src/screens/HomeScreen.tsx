@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -6,6 +6,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -22,6 +23,7 @@ import {
   ArrowUp,
   CalendarDays,
   CalendarOff,
+  Check,
   CheckCheck,
   ChevronDown,
   Edit3,
@@ -42,8 +44,10 @@ import {
   computeAttendanceStats,
   formatDateISO,
   getEffectiveStatus,
+  parseDateISO,
   STATUS_META,
 } from '../utils/attendance';
+import { TactilePressable } from '../components/TactilePressable';
 import {
   BRAND_COLORS,
   FONT_FAMILIES,
@@ -72,6 +76,140 @@ const FILTER_OPTIONS: { mode: SubjectFilterMode; label: string }[] = [
   { mode: 'safe', label: 'Safe ≥ Target' },
 ];
 
+interface SubjectBentoCardProps {
+  subject: Subject;
+  stats: ReturnType<typeof computeAttendanceStats>;
+  todayStatus: ReturnType<typeof getEffectiveStatus>['status'];
+  isDark: boolean;
+  palette: ReturnType<typeof useAttendance>['palette'];
+  onOpenSubject: (subjectId: string) => void;
+  onOpenMenu: (subject: Subject) => void;
+}
+
+const SubjectBentoCard = React.memo(function SubjectBentoCard({
+  subject,
+  stats,
+  todayStatus,
+  isDark,
+  palette,
+  onOpenSubject,
+  onOpenMenu,
+}: SubjectBentoCardProps) {
+  const todayMeta = todayStatus ? STATUS_META[todayStatus] : null;
+  const isOnTrack =
+    stats.totalCounted === 0 || stats.percentage >= subject.targetPercentage;
+  const predictorColor =
+    stats.totalCounted === 0
+      ? palette.textMuted
+      : isOnTrack
+        ? BRAND_COLORS.emeraldText
+        : SEMANTIC_COLORS.absent;
+
+  return (
+    <TactilePressable
+      onPress={() => onOpenSubject(subject.id)}
+      onLongPress={() => onOpenMenu(subject)}
+      style={styles.cardPressableWrap}
+    >
+      <View
+        style={[
+          styles.subjectCard,
+          {
+            backgroundColor: isDark ? '#0E1014' : '#FFFFFF',
+            borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E4E4E7',
+          },
+        ]}
+      >
+        <View style={styles.cardLeft}>
+          <View style={styles.cardTitleRow}>
+            <View style={[styles.colorDot, { backgroundColor: subject.color }]} />
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.subjectName,
+                HEADING_STYLE,
+                {
+                  color: palette.textPrimary,
+                  fontFamily: FONT_FAMILIES.sansBold,
+                },
+              ]}
+            >
+              {subject.name}
+            </Text>
+            <View
+              style={[
+                styles.todayCapsule,
+                {
+                  backgroundColor: todayMeta ? todayMeta.tintBg : palette.control,
+                },
+              ]}
+            >
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.todayCapsuleText,
+                  {
+                    color: todayMeta ? todayMeta.color : palette.textMuted,
+                    fontFamily: FONT_FAMILIES.sansSemiBold,
+                  },
+                ]}
+              >
+                {todayMeta ? `Today: ${todayMeta.label}` : 'Today: Unmarked'}
+              </Text>
+            </View>
+          </View>
+
+          <Text
+            style={[
+              styles.countsText,
+              TABULAR_NUMS,
+              {
+                color: palette.textSecondary,
+                fontFamily: FONT_FAMILIES.monoMedium,
+              },
+            ]}
+          >
+            {stats.countsSummary}
+          </Text>
+
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.predictorText,
+              {
+                color: predictorColor,
+                fontFamily: FONT_FAMILIES.sansSemiBold,
+              },
+            ]}
+          >
+            {stats.predictorLine}
+          </Text>
+        </View>
+
+        <View style={styles.cardRight}>
+          <CircularProgressRing
+            percentage={stats.percentage}
+            targetPercentage={subject.targetPercentage}
+            hasData={stats.totalCounted > 0}
+            size={52}
+            strokeWidth={5}
+            trackColor={palette.control}
+            textColor={palette.textPrimary}
+          />
+          <Pressable
+            onPress={() => onOpenMenu(subject)}
+            hitSlop={10}
+            style={[styles.cardMenuBtn, { backgroundColor: palette.control }]}
+            accessibilityLabel={`Options for ${subject.name}`}
+          >
+            <MoreVertical size={15} color={palette.textSecondary} />
+          </Pressable>
+        </View>
+      </View>
+    </TactilePressable>
+  );
+});
+
 export function HomeScreen() {
   const stackNav = useNavigation<NativeStackNavigationProp<HomeStackParamList>>();
   const drawerNav = useNavigation<DrawerNavigationProp<RootDrawerParamList>>();
@@ -80,12 +218,14 @@ export function HomeScreen() {
   const {
     subjects,
     records,
+    settings,
     palette,
     activeAccent,
     isDark,
     overallPercentage,
     sortMode,
     setSortMode,
+    markDayStatus,
     bulkMarkDate,
     deleteSubject,
     reorderSubject,
@@ -119,8 +259,14 @@ export function HomeScreen() {
 
   const subjectCardsData = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const bySubject = new Map<string, typeof records>();
+    for (const r of records) {
+      const list = bySubject.get(r.subjectId);
+      if (list) list.push(r);
+      else bySubject.set(r.subjectId, [r]);
+    }
     const mapped = subjects.map((subject) => {
-      const subRecords = records.filter((r) => r.subjectId === subject.id);
+      const subRecords = bySubject.get(subject.id) ?? [];
       const stats = computeAttendanceStats(subRecords, subject.targetPercentage);
       const todayRec = subRecords.find((r) => r.date === todayISO);
       const effectiveToday = getEffectiveStatus(
@@ -156,6 +302,22 @@ export function HomeScreen() {
       }
     });
   }, [subjects, records, query, filterMode, sortMode, todayISO]);
+
+  const handleOpenSubject = useCallback(
+    (subjectId: string) => {
+      stackNav.navigate('SubjectDetail', { subjectId });
+    },
+    [stackNav]
+  );
+
+  const handleOpenActionMenu = useCallback((subject: Subject) => {
+    setActionSubject(subject);
+  }, []);
+
+  const keyExtractorSubjectCard = useCallback(
+    (item: (typeof subjectCardsData)[number]) => item.subject.id,
+    []
+  );
 
   const handleOpenAdd = () => {
     void Haptics.selectionAsync();
@@ -207,15 +369,25 @@ export function HomeScreen() {
 
   const primarySubject = subjects[0];
 
-  const heroHeadline = hasAnyCounted
-    ? `${overallPercentage.toFixed(1)}% overall`
-    : 'Overall Attendance';
+  const daysLeftInSemester = useMemo(() => {
+    if (!settings.semesterEndDate) return null;
+    const end = parseDateISO(settings.semesterEndDate).getTime();
+    const today = parseDateISO(todayISO).getTime();
+    return Math.ceil((end - today) / 86_400_000);
+  }, [settings.semesterEndDate, todayISO]);
+
+  const todaysScheduledSubjects = useMemo(() => {
+    const todayWeekday = new Date().getDay();
+    return subjectCardsData.filter((item) =>
+      item.subject.scheduleDays.includes(todayWeekday)
+    );
+  }, [subjectCardsData]);
 
   const heroSubline = hasAnyCounted
     ? overallPercentage >= 75
-      ? 'You are on track across your subjects'
-      : 'Below 75% target — catch up today'
-    : `${subjects.length} ${subjects.length === 1 ? 'subject' : 'subjects'} ready to log`;
+      ? 'All subjects on track'
+      : 'Below 75% target'
+    : `${subjects.length} ${subjects.length === 1 ? 'subject' : 'subjects'} ready`;
 
   const rowIconColor = palette.isDark
     ? BRAND_COLORS.iconMonochrome
@@ -299,31 +471,63 @@ export function HomeScreen() {
           {/* Main Scrollable Content */}
           <FlatList
             data={subjectCardsData}
-            keyExtractor={(item) => item.subject.id}
+            keyExtractor={keyExtractorSubjectCard}
             style={styles.flatList}
             contentContainerStyle={[
               styles.listContent,
               { paddingBottom: Math.max(insets.bottom, 16) + 102 },
             ]}
             showsVerticalScrollIndicator={false}
+            removeClippedSubviews
+            initialNumToRender={8}
+            maxToRenderPerBatch={8}
+            windowSize={5}
             ListHeaderComponent={
               query.trim() ? undefined : (
                 <View style={styles.heroWrap}>
                   <View style={styles.heroHeadingBlock}>
                     <BrandLogo size={36} />
-                    <Text
-                      style={[
-                        styles.heroTitle,
-                        HEADING_STYLE,
-                        TABULAR_NUMS,
-                        {
-                          color: palette.textPrimary,
-                          fontFamily: FONT_FAMILIES.sansBold,
-                        },
-                      ]}
-                    >
-                      {heroHeadline}
-                    </Text>
+                    {hasAnyCounted ? (
+                      <View style={styles.heroPctRow}>
+                        <Text
+                          style={[
+                            styles.heroPctNum,
+                            TABULAR_NUMS,
+                            {
+                              color: palette.textPrimary,
+                              fontFamily: FONT_FAMILIES.monoBold,
+                            },
+                          ]}
+                        >
+                          {overallPercentage.toFixed(1)}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.heroPctUnit,
+                            {
+                              color: palette.textSecondary,
+                              fontFamily: FONT_FAMILIES.sansMedium,
+                            },
+                          ]}
+                        >
+                          %
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text
+                        style={[
+                          styles.heroTitle,
+                          HEADING_STYLE,
+                          TABULAR_NUMS,
+                          {
+                            color: palette.textPrimary,
+                            fontFamily: FONT_FAMILIES.sansBold,
+                          },
+                        ]}
+                      >
+                        Overall Attendance
+                      </Text>
+                    )}
                     <Text
                       style={[
                         styles.heroSub,
@@ -335,6 +539,31 @@ export function HomeScreen() {
                     >
                       {heroSubline}
                     </Text>
+                    {daysLeftInSemester !== null && daysLeftInSemester >= 0 ? (
+                      <View
+                        style={[
+                          styles.semesterPill,
+                          {
+                            backgroundColor: activeAccent.tintBg,
+                            borderColor: activeAccent.borderTint,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.semesterPillText,
+                            TABULAR_NUMS,
+                            {
+                              color: activeAccent.bright,
+                              fontFamily: FONT_FAMILIES.sansSemiBold,
+                            },
+                          ]}
+                        >
+                          {daysLeftInSemester}{' '}
+                          {daysLeftInSemester === 1 ? 'day' : 'days'} left in semester
+                        </Text>
+                      </View>
+                    ) : null}
                   </View>
 
                   {/* 3 Clean Quick-Action Rows with Monochrome Circular Badges */}
@@ -464,6 +693,116 @@ export function HomeScreen() {
                     </Pressable>
                   </View>
 
+                  {/* Today's Scheduled Classes Quick-Mark Strip */}
+                  {todaysScheduledSubjects.length > 0 ? (
+                    <View style={styles.todayStripWrap}>
+                      <Text
+                        style={[
+                          styles.todayStripLabel,
+                          {
+                            color: palette.textSecondary,
+                            fontFamily: FONT_FAMILIES.sansSemiBold,
+                          },
+                        ]}
+                      >
+                        Today’s Classes
+                      </Text>
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.todayStripScroll}
+                      >
+                        {todaysScheduledSubjects.map(({ subject, todayStatus }) => {
+                          const isP = todayStatus === 'present';
+                          const isA = todayStatus === 'absent';
+                          return (
+                            <View
+                              key={`sched-${subject.id}`}
+                              style={[
+                                styles.todayChip,
+                                {
+                                  backgroundColor: palette.card,
+                                  borderColor: palette.border,
+                                },
+                              ]}
+                            >
+                              <View
+                                style={[
+                                  styles.todayChipDot,
+                                  { backgroundColor: subject.color },
+                                ]}
+                              />
+                              <Text
+                                numberOfLines={1}
+                                style={[
+                                  styles.todayChipName,
+                                  {
+                                    color: palette.textPrimary,
+                                    fontFamily: FONT_FAMILIES.sansSemiBold,
+                                  },
+                                ]}
+                              >
+                                {subject.name}
+                              </Text>
+                              <TactilePressable
+                                onPress={() =>
+                                  void markDayStatus(subject.id, todayISO, 'present')
+                                }
+                                style={[
+                                  styles.todayMiniBtn,
+                                  {
+                                    backgroundColor: isP
+                                      ? activeAccent.primary
+                                      : palette.control,
+                                  },
+                                ]}
+                                accessibilityLabel={`Mark ${subject.name} present today`}
+                              >
+                                <Text
+                                  style={[
+                                    styles.todayMiniBtnText,
+                                    {
+                                      color: isP ? '#050608' : palette.textSecondary,
+                                      fontFamily: FONT_FAMILIES.sansBold,
+                                    },
+                                  ]}
+                                >
+                                  P
+                                </Text>
+                              </TactilePressable>
+                              <TactilePressable
+                                onPress={() =>
+                                  void markDayStatus(subject.id, todayISO, 'absent')
+                                }
+                                style={[
+                                  styles.todayMiniBtn,
+                                  {
+                                    backgroundColor: isA
+                                      ? SEMANTIC_COLORS.absent
+                                      : palette.control,
+                                  },
+                                ]}
+                                accessibilityLabel={`Mark ${subject.name} absent today`}
+                              >
+                                <Text
+                                  style={[
+                                    styles.todayMiniBtnText,
+                                    {
+                                      color: isA ? '#050608' : palette.textSecondary,
+                                      fontFamily: FONT_FAMILIES.sansBold,
+                                    },
+                                  ]}
+                                >
+                                  A
+                                </Text>
+                              </TactilePressable>
+                            </View>
+                          );
+                        })}
+                      </ScrollView>
+                    </View>
+                  ) : null}
+
                   <View style={styles.sectionHeaderRow}>
                     <Text
                       style={[
@@ -502,162 +841,97 @@ export function HomeScreen() {
               )
             }
             ListEmptyComponent={
-              <View
-                style={[
-                  styles.emptyCard,
-                  { backgroundColor: palette.card, borderColor: palette.border },
-                ]}
-              >
-                <Text
+              subjects.length === 0 ? (
+                <View
                   style={[
-                    styles.emptyTitle,
-                    HEADING_STYLE,
-                    { color: palette.textPrimary, fontFamily: FONT_FAMILIES.sansBold },
+                    styles.emptyCard,
+                    { backgroundColor: palette.card, borderColor: palette.border },
                   ]}
                 >
-                  No matching subjects
-                </Text>
-                <Text
-                  style={[
-                    styles.emptySub,
-                    {
-                      color: palette.textSecondary,
-                      fontFamily: FONT_FAMILIES.sansRegular,
-                    },
-                  ]}
-                >
-                  Clear your search or tap + in the dock below to add a subject.
-                </Text>
-              </View>
-            }
-            renderItem={({ item }) => {
-              const { subject, stats, todayStatus } = item;
-              const todayMeta = todayStatus ? STATUS_META[todayStatus] : null;
-              const isOnTrack =
-                stats.totalCounted === 0 ||
-                stats.percentage >= subject.targetPercentage;
-              const predictorColor =
-                stats.totalCounted === 0
-                  ? palette.textMuted
-                  : isOnTrack
-                    ? BRAND_COLORS.emeraldText
-                    : SEMANTIC_COLORS.absent;
-
-              return (
-                <Pressable
-                  onPress={async () => {
-                    await Haptics.selectionAsync();
-                    stackNav.navigate('SubjectDetail', { subjectId: subject.id });
-                  }}
-                  style={styles.cardPressableWrap}
-                >
-                  <View
+                  <BrandLogo size={44} />
+                  <Text
                     style={[
-                      styles.subjectCard,
+                      styles.emptyTitle,
+                      HEADING_STYLE,
                       {
-                        backgroundColor: isDark ? '#101215' : '#FFFFFF',
-                        borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E4E4E7',
+                        color: palette.textPrimary,
+                        fontFamily: FONT_FAMILIES.sansBold,
+                        marginTop: 12,
                       },
                     ]}
                   >
-                    {/* Left Info Column */}
-                    <View style={styles.cardLeft}>
-                      <View style={styles.cardTitleRow}>
-                        <View
-                          style={[styles.colorDot, { backgroundColor: subject.color }]}
-                        />
-                        <Text
-                          numberOfLines={1}
-                          style={[
-                            styles.subjectName,
-                            HEADING_STYLE,
-                            {
-                              color: palette.textPrimary,
-                              fontFamily: FONT_FAMILIES.sansBold,
-                            },
-                          ]}
-                        >
-                          {subject.name}
-                        </Text>
-                        <View
-                          style={[
-                            styles.todayCapsule,
-                            {
-                              backgroundColor: todayMeta
-                                ? todayMeta.tintBg
-                                : palette.control,
-                            },
-                          ]}
-                        >
-                          <Text
-                            numberOfLines={1}
-                            style={[
-                              styles.todayCapsuleText,
-                              {
-                                color: todayMeta ? todayMeta.color : palette.textMuted,
-                                fontFamily: FONT_FAMILIES.sansSemiBold,
-                              },
-                            ]}
-                          >
-                            {todayMeta ? `Today: ${todayMeta.label}` : 'Today: Unmarked'}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <Text
-                        style={[
-                          styles.countsText,
-                          TABULAR_NUMS,
-                          {
-                            color: palette.textSecondary,
-                            fontFamily: FONT_FAMILIES.monoMedium,
-                          },
-                        ]}
-                      >
-                        {stats.countsSummary}
-                      </Text>
-
-                      <Text
-                        numberOfLines={1}
-                        style={[
-                          styles.predictorText,
-                          {
-                            color: predictorColor,
-                            fontFamily: FONT_FAMILIES.sansSemiBold,
-                          },
-                        ]}
-                      >
-                        {stats.predictorLine}
-                      </Text>
-                    </View>
-
-                    {/* Right Action Column (Fixed side-by-side 52x52 ring + 36x36 menu) */}
-                    <View style={styles.cardRight}>
-                      <CircularProgressRing
-                        percentage={stats.percentage}
-                        targetPercentage={subject.targetPercentage}
-                        hasData={stats.totalCounted > 0}
-                        size={52}
-                        strokeWidth={5}
-                        trackColor={palette.control}
-                        textColor={palette.textPrimary}
-                      />
-                      <Pressable
-                        onPress={() => setActionSubject(subject)}
-                        hitSlop={10}
-                        style={[
-                          styles.cardMenuBtn,
-                          { backgroundColor: palette.control },
-                        ]}
-                        accessibilityLabel={`Options for ${subject.name}`}
-                      >
-                        <MoreVertical size={15} color={palette.textSecondary} />
-                      </Pressable>
-                    </View>
-                  </View>
-                </Pressable>
-              );
-            }}
+                    Track every class effortlessly
+                  </Text>
+                  <Text
+                    style={[
+                      styles.emptySub,
+                      {
+                        color: palette.textSecondary,
+                        fontFamily: FONT_FAMILIES.sansRegular,
+                        marginBottom: 16,
+                      },
+                    ]}
+                  >
+                    Add your first subject to unlock live attendance %, bunk predictions, and home widgets.
+                  </Text>
+                  <TactilePressable
+                    onPress={handleOpenAdd}
+                    style={[
+                      styles.emptyCtaBtn,
+                      { backgroundColor: activeAccent.primary },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.emptyCtaText,
+                        { color: '#050608', fontFamily: FONT_FAMILIES.sansBold },
+                      ]}
+                    >
+                      Add Your First Subject
+                    </Text>
+                  </TactilePressable>
+                </View>
+              ) : (
+                <View
+                  style={[
+                    styles.emptyCard,
+                    { backgroundColor: palette.card, borderColor: palette.border },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.emptyTitle,
+                      HEADING_STYLE,
+                      { color: palette.textPrimary, fontFamily: FONT_FAMILIES.sansBold },
+                    ]}
+                  >
+                    No matching subjects
+                  </Text>
+                  <Text
+                    style={[
+                      styles.emptySub,
+                      {
+                        color: palette.textSecondary,
+                        fontFamily: FONT_FAMILIES.sansRegular,
+                      },
+                    ]}
+                  >
+                    Clear your search or tap + in the dock below to add a subject.
+                  </Text>
+                </View>
+              )
+            }
+            renderItem={({ item }) => (
+              <SubjectBentoCard
+                subject={item.subject}
+                stats={item.stats}
+                todayStatus={item.todayStatus}
+                isDark={isDark}
+                palette={palette}
+                onOpenSubject={handleOpenSubject}
+                onOpenMenu={handleOpenActionMenu}
+              />
+            )}
           />
 
           {/* Floating Bottom Pill Dock (Thumb Zone) */}
@@ -997,6 +1271,75 @@ export function HomeScreen() {
               >
                 {actionSubject.name}
               </Text>
+
+              <Pressable
+                onPress={async () => {
+                  const target = actionSubject;
+                  setActionSubject(null);
+                  await markDayStatus(target.id, todayISO, 'present');
+                }}
+                style={[
+                  styles.sheetRow,
+                  { backgroundColor: palette.control, borderColor: palette.border },
+                ]}
+              >
+                <Check size={18} color={activeAccent.bright} />
+                <Text
+                  style={[
+                    styles.sheetRowText,
+                    { color: palette.textPrimary, fontFamily: FONT_FAMILIES.sansSemiBold },
+                  ]}
+                >
+                  Mark Today Present
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={async () => {
+                  const target = actionSubject;
+                  setActionSubject(null);
+                  await markDayStatus(target.id, todayISO, 'absent');
+                }}
+                style={[
+                  styles.sheetRow,
+                  { backgroundColor: palette.control, borderColor: palette.border },
+                ]}
+              >
+                <XCircle size={18} color={SEMANTIC_COLORS.absent} />
+                <Text
+                  style={[
+                    styles.sheetRowText,
+                    { color: palette.textPrimary, fontFamily: FONT_FAMILIES.sansSemiBold },
+                  ]}
+                >
+                  Mark Today Absent
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  const target = actionSubject;
+                  setActionSubject(null);
+                  stackNav.navigate('SubjectDetail', {
+                    subjectId: target.id,
+                    openSimulator: true,
+                  });
+                }}
+                style={[
+                  styles.sheetRow,
+                  { backgroundColor: palette.control, borderColor: palette.border },
+                ]}
+              >
+                <Target size={18} color={activeAccent.bright} />
+                <Text
+                  style={[
+                    styles.sheetRowText,
+                    { color: palette.textPrimary, fontFamily: FONT_FAMILIES.sansSemiBold },
+                  ]}
+                >
+                  Open Bunk Simulator
+                </Text>
+              </Pressable>
 
               <Pressable
                 onPress={() => {
@@ -1445,5 +1788,87 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  heroPctRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'center',
+    marginTop: 6,
+  },
+  heroPctNum: {
+    fontSize: 36,
+    fontWeight: '700',
+    letterSpacing: -0.8,
+  },
+  heroPctUnit: {
+    fontSize: 20,
+    fontWeight: '500',
+    marginLeft: 2,
+  },
+  semesterPill: {
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  semesterPillText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+  },
+  todayStripWrap: {
+    marginBottom: 14,
+  },
+  todayStripLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 8,
+  },
+  todayStripScroll: {
+    gap: 8,
+    paddingRight: 8,
+  },
+  todayChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingLeft: 10,
+    paddingRight: 6,
+    paddingVertical: 6,
+  },
+  todayChipDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  todayChipName: {
+    fontSize: 12.5,
+    maxWidth: 110,
+  },
+  todayMiniBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  todayMiniBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  emptyCtaBtn: {
+    height: UI_METRICS.buttonHeight,
+    borderRadius: UI_METRICS.radiusMd,
+    paddingHorizontal: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyCtaText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

@@ -2,7 +2,7 @@ import type { NavigatorScreenParams } from '@react-navigation/native';
 
 export type HomeStackParamList = {
   HomeDashboard: undefined;
-  SubjectDetail: { subjectId: string };
+  SubjectDetail: { subjectId: string; openSimulator?: boolean };
 };
 
 export type RootDrawerParamList = {

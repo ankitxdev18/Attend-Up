@@ -283,6 +283,10 @@ export function SearchAttendanceScreen() {
         keyExtractor={(item) => `${item.subjectId}-${item.date}`}
         contentContainerStyle={styles.listContent}
         stickySectionHeadersEnabled={false}
+        removeClippedSubviews
+        initialNumToRender={12}
+        maxToRenderPerBatch={10}
+        windowSize={5}
         ListEmptyComponent={
           <View
             style={[

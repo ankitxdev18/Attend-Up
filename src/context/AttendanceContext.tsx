@@ -137,10 +137,24 @@ export function AttendanceProvider({ children }: { children: React.ReactNode }) 
   const appStateRef = useRef<string>(AppState.currentState ?? 'active');
   const backgroundedAtRef = useRef<number | null>(null);
   const pinHashRef = useRef(settings.pinHash);
+  const recordsRef = useRef(records);
 
   useEffect(() => {
     pinHashRef.current = settings.pinHash;
   }, [settings.pinHash]);
+
+  useEffect(() => {
+    recordsRef.current = records;
+  }, [records]);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) {
+        clearTimeout(toastTimer.current);
+        toastTimer.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const AUTO_LOCK_GRACE_MS = 30_000;
@@ -385,13 +399,13 @@ export function AttendanceProvider({ children }: { children: React.ReactNode }) 
 
   const markDayStatus = useCallback(
     async (subjectId: string, date: string, status: AttendanceStatus) => {
-      const previous = records.find(
+      const previous = recordsRef.current.find(
         (r) => r.subjectId === subjectId && r.date === date
       );
       try {
         await setSubjectDayStatus(subjectId, date, status);
         await refreshAll();
-        await refreshAllWidgets();
+        void refreshAllWidgets();
 
         const label = status ? `Marked ${STATUS_META[status].label}` : 'Cleared entry';
         showToast(label, {
@@ -407,7 +421,7 @@ export function AttendanceProvider({ children }: { children: React.ReactNode }) 
               note: previous?.note ?? '',
             });
             await refreshAll();
-            await refreshAllWidgets();
+            void refreshAllWidgets();
           },
         });
         return true;
@@ -419,18 +433,18 @@ export function AttendanceProvider({ children }: { children: React.ReactNode }) 
         throw err;
       }
     },
-    [records, refreshAll, showToast]
+    [refreshAll, showToast]
   );
 
   const saveFullRecord = useCallback(
     async (record: Omit<AttendanceRecord, 'updatedAt'>) => {
-      const previous = records.find(
+      const previous = recordsRef.current.find(
         (r) => r.subjectId === record.subjectId && r.date === record.date
       );
       try {
         await upsertAttendanceRecord(record);
         await refreshAll();
-        await refreshAllWidgets();
+        void refreshAllWidgets();
 
         const isClearing =
           record.status === null &&
@@ -456,7 +470,7 @@ export function AttendanceProvider({ children }: { children: React.ReactNode }) 
               note: previous?.note ?? '',
             });
             await refreshAll();
-            await refreshAllWidgets();
+            void refreshAllWidgets();
           },
         });
         return true;
@@ -468,7 +482,7 @@ export function AttendanceProvider({ children }: { children: React.ReactNode }) 
         throw err;
       }
     },
-    [records, refreshAll, showToast]
+    [refreshAll, showToast]
   );
 
   const bulkMarkDate = useCallback(
@@ -552,38 +566,70 @@ export function AttendanceProvider({ children }: { children: React.ReactNode }) 
     setLockedByPin(false);
   }, []);
 
-  const value: AttendanceContextValue = {
-    ready,
-    subjects,
-    records,
-    settings,
-    snapshots,
-    sortMode,
-    setSortMode,
-    palette,
-    activeAccent,
-    isDark: settings.darkMode,
-    lockedByPin,
-    unlockApp,
-    overallPercentage,
-    showToast,
-    dismissToast,
-    refreshAll,
-    toggleDarkMode,
-    updateThemeAccent,
-    saveSettingsPatch,
-    saveSubject,
-    deleteSubject,
-    reorderSubject,
-    markDayStatus,
-    saveFullRecord,
-    bulkMarkDate,
-    bulkMarkSubjectDates,
-    restoreSnapshot,
-    editorTarget,
-    openRecordEditor,
-    closeRecordEditor,
-  };
+  const value = useMemo<AttendanceContextValue>(
+    () => ({
+      ready,
+      subjects,
+      records,
+      settings,
+      snapshots,
+      sortMode,
+      setSortMode,
+      palette,
+      activeAccent,
+      isDark: settings.darkMode,
+      lockedByPin,
+      unlockApp,
+      overallPercentage,
+      showToast,
+      dismissToast,
+      refreshAll,
+      toggleDarkMode,
+      updateThemeAccent,
+      saveSettingsPatch,
+      saveSubject,
+      deleteSubject,
+      reorderSubject,
+      markDayStatus,
+      saveFullRecord,
+      bulkMarkDate,
+      bulkMarkSubjectDates,
+      restoreSnapshot,
+      editorTarget,
+      openRecordEditor,
+      closeRecordEditor,
+    }),
+    [
+      ready,
+      subjects,
+      records,
+      settings,
+      snapshots,
+      sortMode,
+      palette,
+      activeAccent,
+      lockedByPin,
+      unlockApp,
+      overallPercentage,
+      showToast,
+      dismissToast,
+      refreshAll,
+      toggleDarkMode,
+      updateThemeAccent,
+      saveSettingsPatch,
+      saveSubject,
+      deleteSubject,
+      reorderSubject,
+      markDayStatus,
+      saveFullRecord,
+      bulkMarkDate,
+      bulkMarkSubjectDates,
+      restoreSnapshot,
+      editorTarget,
+      openRecordEditor,
+      closeRecordEditor,
+    ]
+  );
 
   return (
     <AttendanceContext.Provider value={value}>

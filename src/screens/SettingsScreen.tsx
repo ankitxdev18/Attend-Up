@@ -18,6 +18,7 @@ import DateTimePicker, {
 } from '@react-native-community/datetimepicker';
 import {
   Bell,
+  Calendar,
   Check,
   Clock,
   Info,
@@ -40,11 +41,13 @@ import { validatePin, ValidationError } from '../lib/validation';
 import {
   computeAttendanceStats,
   computeStreak,
+  formatDisplayDate,
   formatMonthKey,
   formatMonthLabel,
   getEffectiveStatus,
   getLast12WeeksGrid,
   getMonthGrid,
+  parseDateISO,
   STATUS_META,
 } from '../utils/attendance';
 import {
@@ -89,6 +92,7 @@ export function SettingsScreen() {
   const [pinConfirm, setPinConfirm] = useState('');
   const [pinError, setPinError] = useState('');
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showSemesterPicker, setShowSemesterPicker] = useState(false);
   const [previewTab, setPreviewTab] = useState<'heatmap' | 'calendar'>(
     settings.widgetStyle
   );
@@ -290,6 +294,69 @@ export function SettingsScreen() {
               thumbColor="#FFFFFF"
             />
           </View>
+
+          <Pressable
+            onPress={() => setShowSemesterPicker(true)}
+            style={[styles.settingRow, { borderTopColor: palette.border, borderTopWidth: 1, borderBottomWidth: 0 }]}
+          >
+            <View style={styles.rowLeft}>
+              <View style={styles.settingIconBadge}>
+                <Calendar size={16} color={activeAccent.bright} />
+              </View>
+              <View style={styles.rowText}>
+                <Text
+                  style={[
+                    styles.rowTitle,
+                    { color: palette.textPrimary, fontFamily: FONT_FAMILIES.sansSemiBold },
+                  ]}
+                >
+                  Semester End Date
+                </Text>
+                <Text
+                  style={[
+                    styles.rowDesc,
+                    { color: palette.textMuted, fontFamily: FONT_FAMILIES.sansRegular },
+                  ]}
+                >
+                  {settings.semesterEndDate
+                    ? `Ends ${formatDisplayDate(settings.semesterEndDate)}`
+                    : 'Optional cutoff for semester countdown'}
+                </Text>
+              </View>
+            </View>
+            {settings.semesterEndDate ? (
+              <Pressable
+                onPress={() => void saveSettingsPatch({ semesterEndDate: '' })}
+                hitSlop={8}
+                style={[styles.clearPill, { backgroundColor: palette.control, borderColor: palette.border }]}
+              >
+                <Text style={[styles.clearPillText, { color: palette.textSecondary }]}>Clear</Text>
+              </Pressable>
+            ) : null}
+          </Pressable>
+
+          {showSemesterPicker ? (
+            <DateTimePicker
+              value={
+                settings.semesterEndDate
+                  ? parseDateISO(settings.semesterEndDate)
+                  : new Date()
+              }
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              minimumDate={new Date()}
+              onValueChange={(_event: DateTimePickerChangeEvent, selectedDate: Date) => {
+                if (Platform.OS === 'android') {
+                  setShowSemesterPicker(false);
+                }
+                const y = selectedDate.getFullYear();
+                const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                const d = String(selectedDate.getDate()).padStart(2, '0');
+                void saveSettingsPatch({ semesterEndDate: `${y}-${m}-${d}` });
+              }}
+              onDismiss={() => setShowSemesterPicker(false)}
+            />
+          ) : null}
         </View>
 
         {/* App & Background Color Picker */}
@@ -1382,5 +1449,15 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  clearPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  clearPillText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
 });

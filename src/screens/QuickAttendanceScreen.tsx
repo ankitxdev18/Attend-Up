@@ -82,6 +82,17 @@ export function QuickAttendanceScreen() {
     [dateStrip.length]
   );
 
+  const scrollRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (scrollRetryTimerRef.current) {
+        clearTimeout(scrollRetryTimerRef.current);
+        scrollRetryTimerRef.current = null;
+      }
+    };
+  }, []);
+
   useEffect(() => {
     const idx = dateStrip.findIndex((d) => d.dateISO === selectedDate);
     if (idx >= 0) {
@@ -202,7 +213,13 @@ export function QuickAttendanceScreen() {
               index,
             })}
             onScrollToIndexFailed={({ index }) => {
-              setTimeout(() => scrollDateToCenter(index, false), 100);
+              if (scrollRetryTimerRef.current) {
+                clearTimeout(scrollRetryTimerRef.current);
+              }
+              scrollRetryTimerRef.current = setTimeout(
+                () => scrollDateToCenter(index, false),
+                100
+              );
             }}
             renderItem={({ item, index }) => {
               const active = item.dateISO === selectedDate;

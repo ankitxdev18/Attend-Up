@@ -144,18 +144,18 @@ export interface ThemePalette {
 export const DARK_PALETTE: ThemePalette = {
   isDark: true,
   background: '#050608',
-  card: '#101215',
+  card: '#0E1014',
   sheet: '#111317',
   dock: '#15171A',
   glass: 'rgba(20, 22, 25, 0.85)',
   capsuleTrack: '#121417',
   capsuleActive: '#22252A',
-  control: '#181A1F',
+  control: '#161920',
   border: 'rgba(255, 255, 255, 0.08)',
   glassBorder: 'rgba(255, 255, 255, 0.08)',
-  textPrimary: '#F8FAFC',
-  textSecondary: '#9CA3AF',
-  textMuted: '#6B7280',
+  textPrimary: '#F4F5F7',
+  textSecondary: '#8B909A',
+  textMuted: '#555A64',
 };
 
 export const LIGHT_PALETTE: ThemePalette = {
