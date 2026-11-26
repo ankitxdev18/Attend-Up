@@ -4,6 +4,8 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 export interface BrandLogoProps {
   size?: number;
   showSquircle?: boolean;
+  variant?: 'squircle' | 'ring';
+  accentColor?: string;
 }
 
 const TRACK_RADIUS = 29;
@@ -19,13 +21,20 @@ export const BRAND_LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="
 
 /**
  * Crisp vector AttendUp brand mark:
- * obsidian squircle (#0B0C0E) with subtle border, #22252A track,
- * #10B981 68% emerald arc with rounded caps, and bold white checkmark.
+ * obsidian squircle (#0B0C0E) with subtle border (or borderless 'ring' variant),
+ * #22252A track, #10B981 (or activeAccent) 68% arc with rounded caps, and white checkmark.
  */
-export function BrandLogo({ size = 36, showSquircle = true }: BrandLogoProps) {
+export function BrandLogo({
+  size = 36,
+  showSquircle = true,
+  variant = 'squircle',
+  accentColor = '#10B981',
+}: BrandLogoProps) {
+  const renderSquircle = showSquircle && variant !== 'ring';
+
   return (
     <Svg width={size} height={size} viewBox="0 0 100 100">
-      {showSquircle && (
+      {renderSquircle && (
         <Rect
           x="2"
           y="2"
@@ -49,12 +58,12 @@ export function BrandLogo({ size = 36, showSquircle = true }: BrandLogoProps) {
         fill="none"
       />
 
-      {/* 68% Emerald progress arc */}
+      {/* 68% Accent progress arc */}
       <Circle
         cx="50"
         cy="50"
         r={TRACK_RADIUS}
-        stroke="#10B981"
+        stroke={accentColor}
         strokeWidth="6.2"
         strokeLinecap="round"
         strokeDasharray={`${EMERALD_ARC_LENGTH.toFixed(2)} ${TRACK_CIRCUMFERENCE.toFixed(2)}`}

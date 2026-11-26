@@ -213,7 +213,7 @@ const outputs = [
   },
   {
     file: 'splash-icon.png',
-    opts: { size: 512, bgColor: [5, 6, 8], showSquircle: true, emblemScale: 0.92 },
+    opts: { size: 512, bgColor: null, showSquircle: false, emblemScale: 0.72 },
   },
   {
     file: 'notification-icon.png',

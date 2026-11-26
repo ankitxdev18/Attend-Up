@@ -249,26 +249,35 @@ export function AttendanceProvider({ children }: { children: React.ReactNode }) 
     let mounted = true;
     (async () => {
       try {
-        await initDatabase();
-        const [subs, recs, appSettings, snaps] = await Promise.all([
-          getAllSubjects(),
-          getAllRecords(),
-          getAppSettings(),
-          getAllSnapshots(),
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('SQLite init timeout')), 3000);
+        });
+
+        await Promise.race([
+          (async () => {
+            await initDatabase();
+            const [subs, recs, appSettings, snaps] = await Promise.all([
+              getAllSubjects(),
+              getAllRecords(),
+              getAppSettings(),
+              getAllSnapshots(),
+            ]);
+            if (!mounted) return;
+            setSubjects(subs);
+            setRecords(recs);
+            setSettings(appSettings);
+            setSnapshots(snaps);
+            if (appSettings.pinHash) {
+              setLockedByPin(true);
+            }
+          })(),
+          timeoutPromise,
         ]);
-        if (!mounted) return;
-        setSubjects(subs);
-        setRecords(recs);
-        setSettings(appSettings);
-        setSnapshots(snaps);
-        if (appSettings.pinHash) {
-          setLockedByPin(true);
-        }
-        try {
-          await configureNotifications();
-        } catch {
-          // Local notification setup may be restricted in some Expo Go builds.
-        }
+
+        // Non-blocking notification setup so native channel quirks never stall cold boot.
+        void configureNotifications().catch(() => {});
+      } catch {
+        // Proceed to render UI even if cold-start DB/notification init hits a timeout.
       } finally {
         if (mounted) setReady(true);
       }
