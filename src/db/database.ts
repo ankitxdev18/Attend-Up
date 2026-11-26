@@ -46,6 +46,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   lastBackupAt: 0,
   themeAccent: 'emerald',
   semesterEndDate: '',
+  lastUpdateCheckAt: 0,
+  dismissedVersion: '',
 };
 
 const MAX_SAFETY_SNAPSHOTS = 15;
@@ -119,7 +121,9 @@ export async function initDatabase(): Promise<void> {
         pinHash TEXT NOT NULL DEFAULT '',
         lastBackupAt INTEGER NOT NULL DEFAULT 0,
         themeAccent TEXT NOT NULL DEFAULT 'emerald',
-        semesterEndDate TEXT NOT NULL DEFAULT ''
+        semesterEndDate TEXT NOT NULL DEFAULT '',
+        lastUpdateCheckAt INTEGER NOT NULL DEFAULT 0,
+        dismissedVersion TEXT NOT NULL DEFAULT ''
       );
       CREATE TABLE IF NOT EXISTS snapshots (
         id TEXT PRIMARY KEY NOT NULL,
@@ -162,6 +166,16 @@ export async function initDatabase(): Promise<void> {
         `ALTER TABLE settings ADD COLUMN semesterEndDate TEXT NOT NULL DEFAULT '';`
       );
     }
+    if (!colNames.has('lastUpdateCheckAt')) {
+      await db.execAsync(
+        `ALTER TABLE settings ADD COLUMN lastUpdateCheckAt INTEGER NOT NULL DEFAULT 0;`
+      );
+    }
+    if (!colNames.has('dismissedVersion')) {
+      await db.execAsync(
+        `ALTER TABLE settings ADD COLUMN dismissedVersion TEXT NOT NULL DEFAULT '';`
+      );
+    }
 
     const subCols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(subjects)');
     const subColNames = new Set(subCols.map((c) => c.name));
@@ -190,8 +204,8 @@ export async function initDatabase(): Promise<void> {
       await db.runAsync(
         `INSERT INTO settings (
           id, lockAttendance, preferNote, darkMode, reminderEnabled, reminderTime,
-          reminderSubjectIds, widgetSubjectId, widgetStyle, widgetMonth, pinHash, lastBackupAt, themeAccent, semesterEndDate
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          reminderSubjectIds, widgetSubjectId, widgetStyle, widgetMonth, pinHash, lastBackupAt, themeAccent, semesterEndDate, lastUpdateCheckAt, dismissedVersion
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           'app',
           DEFAULT_SETTINGS.lockAttendance ? 1 : 0,
@@ -207,6 +221,8 @@ export async function initDatabase(): Promise<void> {
           DEFAULT_SETTINGS.lastBackupAt,
           DEFAULT_SETTINGS.themeAccent,
           DEFAULT_SETTINGS.semesterEndDate,
+          DEFAULT_SETTINGS.lastUpdateCheckAt,
+          DEFAULT_SETTINGS.dismissedVersion,
         ]
       );
     }
@@ -295,6 +311,8 @@ export async function getAppSettings(): Promise<AppSettings> {
     lastBackupAt: number;
     themeAccent: string;
     semesterEndDate: string;
+    lastUpdateCheckAt: number;
+    dismissedVersion: string;
   }>('SELECT * FROM settings WHERE id = ?', ['app']);
 
   if (!row) return DEFAULT_SETTINGS;
@@ -317,6 +335,8 @@ export async function getAppSettings(): Promise<AppSettings> {
     lastBackupAt: Number(row.lastBackupAt) || 0,
     themeAccent,
     semesterEndDate: row.semesterEndDate || '',
+    lastUpdateCheckAt: Number(row.lastUpdateCheckAt) || 0,
+    dismissedVersion: row.dismissedVersion || '',
   };
 }
 
@@ -337,7 +357,7 @@ export async function updateAppSettings(patch: Partial<AppSettings>): Promise<Ap
      SET lockAttendance = ?, preferNote = ?, darkMode = ?, reminderEnabled = ?,
          reminderTime = ?, reminderSubjectIds = ?, widgetSubjectId = ?,
          widgetStyle = ?, widgetMonth = ?, pinHash = ?, lastBackupAt = ?, themeAccent = ?,
-         semesterEndDate = ?
+         semesterEndDate = ?, lastUpdateCheckAt = ?, dismissedVersion = ?
      WHERE id = 'app'`,
     [
       next.lockAttendance ? 1 : 0,
@@ -353,6 +373,8 @@ export async function updateAppSettings(patch: Partial<AppSettings>): Promise<Ap
       Number(next.lastBackupAt) || 0,
       next.themeAccent ?? 'emerald',
       next.semesterEndDate ?? '',
+      Number(next.lastUpdateCheckAt) || 0,
+      next.dismissedVersion ?? '',
     ]
   );
   return next;

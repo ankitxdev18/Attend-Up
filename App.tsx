@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -22,17 +22,35 @@ import { AnimatedSplashOverlay } from './src/components/AnimatedSplashOverlay';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { PinLockScreen } from './src/components/PinLockScreen';
 import { RecordEditorSheet } from './src/components/RecordEditorSheet';
+import { UpdateModal } from './src/components/UpdateModal';
+import { checkForAppUpdate, type UpdateInfo } from './src/lib/appUpdater';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function AppRoot({ onReadyToHideSplash }: { onReadyToHideSplash: () => void }) {
   const { ready, isDark, lockedByPin } = useAttendance();
+  const [pendingUpdate, setPendingUpdate] = useState<UpdateInfo | null>(null);
 
   useEffect(() => {
     if (ready) {
       onReadyToHideSplash();
     }
   }, [ready, onReadyToHideSplash]);
+
+  useEffect(() => {
+    let active = true;
+    const timer = setTimeout(() => {
+      void checkForAppUpdate().then((info) => {
+        if (active && info) {
+          setPendingUpdate(info);
+        }
+      });
+    }, 3000);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, []);
 
   if (!ready) {
     return null;
@@ -49,6 +67,10 @@ function AppRoot({ onReadyToHideSplash }: { onReadyToHideSplash: () => void }) {
           <RecordEditorSheet />
         </BottomSheetModalProvider>
       )}
+      <UpdateModal
+        updateInfo={pendingUpdate}
+        onClose={() => setPendingUpdate(null)}
+      />
       <AnimatedSplashOverlay />
     </>
   );

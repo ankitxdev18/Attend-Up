@@ -55,6 +55,8 @@ export interface AppSettings {
   lastBackupAt: number;
   themeAccent: ThemeAccentId;
   semesterEndDate: string; // "YYYY-MM-DD" or ''
+  lastUpdateCheckAt: number;
+  dismissedVersion: string;
 }
 
 export interface SafetySnapshot {

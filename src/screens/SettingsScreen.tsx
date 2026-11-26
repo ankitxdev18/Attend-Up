@@ -1,15 +1,18 @@
 import React, { useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Modal,
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Switch,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
@@ -21,12 +24,15 @@ import {
   Calendar,
   Check,
   Clock,
+  Copy,
   Info,
   LayoutGrid,
   Lock,
   Moon,
   Palette,
+  RefreshCw,
   Send,
+  Share2,
   Shield,
   Smartphone,
   StickyNote,
@@ -36,7 +42,14 @@ import type { RootDrawerParamList } from '../navigation/types';
 import { useAttendance } from '../context/AttendanceContext';
 import { hashPin } from '../db/database';
 import { isNativeWidgetSupported } from '../lib/nativeWidgetSupport';
+import {
+  checkForAppUpdate,
+  getInstalledVersion,
+  LATEST_RELEASES_PAGE,
+  type UpdateInfo,
+} from '../lib/appUpdater';
 import { sendTestReminderNotification } from '../lib/notifications';
+import { UpdateModal } from '../components/UpdateModal';
 import { validatePin, ValidationError } from '../lib/validation';
 import {
   computeAttendanceStats,
@@ -93,6 +106,9 @@ export function SettingsScreen() {
   const [pinError, setPinError] = useState('');
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showSemesterPicker, setShowSemesterPicker] = useState(false);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [manualUpdateInfo, setManualUpdateInfo] = useState<UpdateInfo | null>(null);
+  const installedVersion = getInstalledVersion();
   const [previewTab, setPreviewTab] = useState<'heatmap' | 'calendar'>(
     settings.widgetStyle
   );
@@ -616,6 +632,140 @@ export function SettingsScreen() {
           </Pressable>
         </View>
 
+        {/* App & Updates Card */}
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: palette.card, borderColor: palette.border },
+          ]}
+        >
+          <View style={styles.appUpdateHeader}>
+            <View>
+              <Text style={[styles.groupTitle, { color: palette.textSecondary, marginBottom: 2 }]}>
+                App & Updates
+              </Text>
+              <Text
+                style={[
+                  styles.versionCaption,
+                  TABULAR_NUMS,
+                  { color: palette.textPrimary, fontFamily: FONT_FAMILIES.monoBold },
+                ]}
+              >
+                AttendUp v{installedVersion}
+              </Text>
+            </View>
+
+            <Pressable
+              disabled={checkingUpdate}
+              onPress={async () => {
+                setCheckingUpdate(true);
+                try {
+                  const info = await checkForAppUpdate({ force: true });
+                  if (info) {
+                    setManualUpdateInfo(info);
+                  } else {
+                    showToast("You're on the latest version", 'success');
+                  }
+                } finally {
+                  setCheckingUpdate(false);
+                }
+              }}
+              style={[
+                styles.checkUpdateBtn,
+                {
+                  backgroundColor: activeAccent.tintBg,
+                  borderColor: activeAccent.borderTint,
+                  opacity: checkingUpdate ? 0.7 : 1,
+                },
+              ]}
+            >
+              {checkingUpdate ? (
+                <ActivityIndicator size="small" color={activeAccent.bright} />
+              ) : (
+                <RefreshCw size={14} color={activeAccent.bright} />
+              )}
+              <Text
+                style={[
+                  styles.checkUpdateText,
+                  { color: activeAccent.bright, fontFamily: FONT_FAMILIES.sansBold },
+                ]}
+              >
+                {checkingUpdate ? 'Checking...' : 'Check for Updates'}
+              </Text>
+            </Pressable>
+          </View>
+
+          <View
+            style={[
+              styles.apkLinkBox,
+              { backgroundColor: palette.control, borderColor: palette.border },
+            ]}
+          >
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.apkLinkText,
+                { color: palette.textSecondary, fontFamily: FONT_FAMILIES.monoMedium },
+              ]}
+            >
+              {LATEST_RELEASES_PAGE}
+            </Text>
+          </View>
+
+          <View style={styles.shareActionsRow}>
+            <Pressable
+              onPress={async () => {
+                try {
+                  await Share.share({
+                    message: `Download AttendUp APK (v${installedVersion}): ${LATEST_RELEASES_PAGE}`,
+                  });
+                } catch {
+                  // Ignore share sheet cancellation
+                }
+              }}
+              style={[
+                styles.shareActionBtn,
+                { backgroundColor: activeAccent.primary },
+              ]}
+            >
+              <Share2 size={15} color="#050608" />
+              <Text
+                style={[
+                  styles.shareActionText,
+                  { color: '#050608', fontFamily: FONT_FAMILIES.sansBold },
+                ]}
+              >
+                Share App Link
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={async () => {
+                await Clipboard.setStringAsync(LATEST_RELEASES_PAGE);
+                showToast('APK download link copied', 'success');
+              }}
+              style={[
+                styles.shareActionBtn,
+                {
+                  backgroundColor: palette.control,
+                  borderColor: palette.border,
+                  borderWidth: 1,
+                },
+              ]}
+            >
+              <Copy size={15} color={palette.textPrimary} />
+              <Text
+                style={[
+                  styles.shareActionText,
+                  { color: palette.textPrimary, fontFamily: FONT_FAMILIES.sansSemiBold },
+                ]}
+              >
+                Copy Link
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+
         {/* Home Screen Widget Configuration Card */}
         <View
           style={[
@@ -849,6 +999,10 @@ export function SettingsScreen() {
         </View>
       </Modal>
       </SafeAreaView>
+      <UpdateModal
+        updateInfo={manualUpdateInfo}
+        onClose={() => setManualUpdateInfo(null)}
+      />
     </AmbientCanvas>
   );
 }
@@ -1459,5 +1613,56 @@ const styles = StyleSheet.create({
   clearPillText: {
     fontSize: 11,
     fontWeight: '600',
+  },
+  appUpdateHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 12,
+  },
+  versionCaption: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  checkUpdateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    height: 36,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  checkUpdateText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  apkLinkBox: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    marginBottom: 10,
+  },
+  apkLinkText: {
+    fontSize: 11.5,
+  },
+  shareActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  shareActionBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
+  shareActionText: {
+    fontSize: 13.5,
+    fontWeight: '700',
   },
 });
