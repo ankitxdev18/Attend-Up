@@ -87,9 +87,9 @@ jobs:
             cp app/build/outputs/apk/release/app-release.apk "../dist-release/AttendUp-${VERSION_NAME}.apk"
             rm -f app/release.keystore
           else
-            echo "No release keystore secret configured; building installable debug APK."
-            ./gradlew assembleDebug --no-daemon --max-workers=2 -PreactNativeArchitectures=arm64-v8a
-            cp app/build/outputs/apk/debug/app-debug.apk "../dist-release/AttendUp-${VERSION_NAME}.apk"
+            echo "No release keystore secret configured; building standalone release APK signed with default debug keystore."
+            ./gradlew assembleRelease --no-daemon --max-workers=2 -PreactNativeArchitectures=arm64-v8a
+            cp app/build/outputs/apk/release/app-release.apk "../dist-release/AttendUp-${VERSION_NAME}.apk"
           fi
 
       - name: Upload APK artifact
