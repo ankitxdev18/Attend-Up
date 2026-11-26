@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -231,6 +232,7 @@ export function HomeScreen() {
   } = useAttendance();
 
   const [query, setQuery] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
   const [filterMode, setFilterMode] = useState<SubjectFilterMode>('all');
   const [sortFilterOpen, setSortFilterOpen] = useState(false);
   const [overflowOpen, setOverflowOpen] = useState(false);
@@ -405,7 +407,7 @@ export function HomeScreen() {
     <AmbientCanvas tone={ambientTone}>
       <SafeAreaView edges={['top', 'left', 'right']} style={styles.flex1}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.flex1}
         >
           {/* Minimalist Signature Top Bar */}
@@ -972,6 +974,147 @@ export function HomeScreen() {
               { paddingBottom: Math.max(insets.bottom, 16) + 8 },
             ]}
           >
+            {searchFocused || query.trim().length > 0 ? (
+              <LiquidGlassCard
+                borderRadius={22}
+                useNativeBlur
+                focused
+                style={styles.searchDropdown}
+              >
+                <View style={styles.searchDropdownHeader}>
+                  <Text
+                    style={[
+                      styles.searchDropdownTitle,
+                      {
+                        color: palette.textSecondary,
+                        fontFamily: FONT_FAMILIES.sansSemiBold,
+                      },
+                    ]}
+                  >
+                    Quick Mark Today ({subjectCardsData.length})
+                  </Text>
+                  <Pressable
+                    onPress={() => {
+                      setSearchFocused(false);
+                      Keyboard.dismiss();
+                    }}
+                    hitSlop={8}
+                  >
+                    <Text
+                      style={[
+                        styles.searchDropdownDone,
+                        { color: BRAND_COLORS.bright, fontFamily: FONT_FAMILIES.sansBold },
+                      ]}
+                    >
+                      Done
+                    </Text>
+                  </Pressable>
+                </View>
+                <ScrollView
+                  keyboardShouldPersistTaps="handled"
+                  style={styles.searchDropdownScroll}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {subjectCardsData.slice(0, 5).map(({ subject, todayStatus }) => {
+                    const isP = todayStatus === 'present';
+                    const isA = todayStatus === 'absent';
+                    return (
+                      <View
+                        key={`drop-${subject.id}`}
+                        style={[
+                          styles.searchDropdownRow,
+                          { borderTopColor: palette.border },
+                        ]}
+                      >
+                        <Pressable
+                          onPress={() => {
+                            setSearchFocused(false);
+                            Keyboard.dismiss();
+                            handleOpenSubject(subject.id);
+                          }}
+                          style={styles.searchDropdownLeft}
+                        >
+                          <View
+                            style={[
+                              styles.todayChipDot,
+                              { backgroundColor: subject.color },
+                            ]}
+                          />
+                          <Text
+                            numberOfLines={1}
+                            style={[
+                              styles.searchDropdownName,
+                              {
+                                color: palette.textPrimary,
+                                fontFamily: FONT_FAMILIES.sansMedium,
+                              },
+                            ]}
+                          >
+                            {subject.name}
+                          </Text>
+                        </Pressable>
+
+                        <View style={styles.searchDropdownActions}>
+                          <TactilePressable
+                            onPress={() =>
+                              void markDayStatus(subject.id, todayISO, 'present')
+                            }
+                            style={[
+                              styles.todayMiniBtn,
+                              {
+                                backgroundColor: isP
+                                  ? BRAND_COLORS.primary
+                                  : palette.control,
+                              },
+                            ]}
+                            accessibilityLabel={`Quick mark ${subject.name} present`}
+                          >
+                            <Text
+                              style={[
+                                styles.todayMiniBtnText,
+                                {
+                                  color: isP ? '#050608' : palette.textSecondary,
+                                  fontFamily: FONT_FAMILIES.sansBold,
+                                },
+                              ]}
+                            >
+                              P
+                            </Text>
+                          </TactilePressable>
+                          <TactilePressable
+                            onPress={() =>
+                              void markDayStatus(subject.id, todayISO, 'absent')
+                            }
+                            style={[
+                              styles.todayMiniBtn,
+                              {
+                                backgroundColor: isA
+                                  ? SEMANTIC_COLORS.absent
+                                  : palette.control,
+                              },
+                            ]}
+                            accessibilityLabel={`Quick mark ${subject.name} absent`}
+                          >
+                            <Text
+                              style={[
+                                styles.todayMiniBtnText,
+                                {
+                                  color: isA ? '#050608' : palette.textSecondary,
+                                  fontFamily: FONT_FAMILIES.sansBold,
+                                },
+                              ]}
+                            >
+                              A
+                            </Text>
+                          </TactilePressable>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+              </LiquidGlassCard>
+            ) : null}
+
             <LiquidGlassCard
               borderRadius={999}
               useNativeBlur
@@ -989,6 +1132,13 @@ export function HomeScreen() {
               <TextInput
                 value={query}
                 onChangeText={setQuery}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
+                returnKeyType="done"
+                onSubmitEditing={() => {
+                  setSearchFocused(false);
+                  Keyboard.dismiss();
+                }}
                 placeholder="Search or quick mark..."
                 placeholderTextColor={palette.textMuted}
                 style={[
@@ -1002,9 +1152,13 @@ export function HomeScreen() {
 
               {query ? (
                 <Pressable
-                  onPress={() => setQuery('')}
+                  onPress={() => {
+                    setQuery('');
+                    Keyboard.dismiss();
+                  }}
                   hitSlop={8}
                   style={{ paddingHorizontal: 4 }}
+                  accessibilityLabel="Clear search"
                 >
                   <X size={16} color={palette.textMuted} />
                 </Pressable>
@@ -1903,5 +2057,53 @@ const styles = StyleSheet.create({
   emptyCtaText: {
     fontSize: 14,
     fontWeight: '700',
+  },
+  searchDropdown: {
+    marginBottom: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  searchDropdownHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  searchDropdownTitle: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  searchDropdownDone: {
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  searchDropdownScroll: {
+    maxHeight: 200,
+  },
+  searchDropdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    gap: 8,
+  },
+  searchDropdownLeft: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  searchDropdownName: {
+    flex: 1,
+    fontSize: 13.5,
+  },
+  searchDropdownActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
 });

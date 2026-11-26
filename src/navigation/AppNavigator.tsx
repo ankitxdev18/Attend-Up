@@ -70,19 +70,10 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
     palette,
     isDark,
     toggleDarkMode,
-    overallPercentage,
     subjects,
     records,
   } = useAttendance();
   const activeRouteName = props.state.routes[props.state.index]?.name;
-
-  const hasData = records.some(
-    (r) => r.status === 'present' || r.status === 'absent' || r.status === 'half_day'
-  );
-  const badgeColor =
-    !hasData || overallPercentage >= 75
-      ? BRAND_COLORS.emeraldText
-      : SEMANTIC_COLORS.absent;
 
   const subjectSummaries = useMemo(() => {
     return subjects.map((sub) => {
@@ -169,31 +160,6 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
               <Moon size={17} color={palette.textPrimary} />
             )}
           </Pressable>
-        </View>
-
-        <View
-          style={[
-            styles.overallBadge,
-            { backgroundColor: palette.control, borderColor: palette.border },
-          ]}
-        >
-          <Text
-            style={[
-              styles.overallLabel,
-              { color: palette.textSecondary, fontFamily: FONT_FAMILIES.sansSemiBold },
-            ]}
-          >
-            Overall Attendance
-          </Text>
-          <Text
-            style={[
-              styles.overallPct,
-              TABULAR_NUMS,
-              { color: badgeColor, fontFamily: FONT_FAMILIES.monoBold },
-            ]}
-          >
-            {hasData ? `${overallPercentage.toFixed(1)}%` : '0.0%'}
-          </Text>
         </View>
 
         {/* 2-Column Mini Stat Row */}
@@ -321,12 +287,12 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
       </Text>
       <View style={styles.quickJumpList}>
         {subjectSummaries.map(({ subject, stats, isAtRisk }) => {
-          const pctColor =
+          const dotColor =
             stats.totalCounted === 0
-              ? palette.textMuted
+              ? subject.color
               : isAtRisk
                 ? SEMANTIC_COLORS.absent
-                : BRAND_COLORS.emeraldText;
+                : BRAND_COLORS.bright;
           return (
             <Pressable
               key={subject.id}
@@ -343,7 +309,7 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
             >
               <View style={styles.quickJumpLeft}>
                 <View
-                  style={[styles.subjectDot, { backgroundColor: subject.color }]}
+                  style={[styles.subjectDot, { backgroundColor: dotColor }]}
                 />
                 <Text
                   numberOfLines={1}
@@ -356,20 +322,7 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
                 </Text>
               </View>
 
-              <View style={styles.quickJumpRight}>
-                <Text
-                  style={[
-                    styles.quickJumpPct,
-                    TABULAR_NUMS,
-                    { color: pctColor, fontFamily: FONT_FAMILIES.monoBold },
-                  ]}
-                >
-                  {stats.totalCounted > 0
-                    ? `${Math.round(stats.percentage)}%`
-                    : '0%'}
-                </Text>
-                <ChevronRight size={14} color={palette.textMuted} />
-              </View>
+              <ChevronRight size={14} color={palette.textMuted} />
             </Pressable>
           );
         })}

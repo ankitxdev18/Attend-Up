@@ -8,7 +8,7 @@ import {
   type BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
 import * as Haptics from 'expo-haptics';
-import { Minus, Plus, Trash2, X } from 'lucide-react-native';
+import { Check, Minus, Plus, Trash2, X } from 'lucide-react-native';
 import type { AttendanceRecord, AttendanceStatus, ShiftType, Subject } from '../types/attendance';
 import { useAttendance } from '../context/AttendanceContext';
 import { formatDateISO, formatDisplayDate, STATUS_META } from '../utils/attendance';
@@ -53,6 +53,7 @@ function RecordEditorBody({
   onClose,
 }: RecordEditorBodyProps) {
   const { palette, saveFullRecord, showToast } = useAttendance();
+  const scrollViewRef = useRef<React.ComponentRef<typeof BottomSheetScrollView>>(null);
   const noteInputRef = useRef<React.ComponentRef<typeof BottomSheetTextInput>>(null);
 
   const [status, setStatus] = useState<AttendanceStatus>(existingRecord?.status ?? null);
@@ -148,7 +149,8 @@ function RecordEditorBody({
 
   return (
     <BottomSheetScrollView
-      contentContainerStyle={styles.content}
+      ref={scrollViewRef}
+      contentContainerStyle={[styles.content, { paddingBottom: 48 }]}
       keyboardShouldPersistTaps="handled"
     >
       {/* Header */}
@@ -493,25 +495,47 @@ function RecordEditorBody({
             {note.length}/300
           </Text>
         </View>
-        <BottomSheetTextInput
-          ref={noteInputRef}
-          editable={!isFutureDate}
-          value={note}
-          onChangeText={setNote}
-          maxLength={300}
-          multiline
-          placeholder="Add class topic, reason, or reminder..."
-          placeholderTextColor={palette.textMuted}
-          style={[
-            styles.noteInput,
-            {
-              backgroundColor: palette.control,
-              borderColor: palette.border,
-              color: palette.textPrimary,
-              fontFamily: FONT_FAMILIES.sansRegular,
-            },
-          ]}
-        />
+        <View style={styles.noteInputRow}>
+          <BottomSheetTextInput
+            ref={noteInputRef}
+            editable={!isFutureDate}
+            value={note}
+            onChangeText={setNote}
+            onFocus={() => {
+              setTimeout(() => {
+                scrollViewRef.current?.scrollToEnd({ animated: true });
+              }, 180);
+            }}
+            maxLength={300}
+            multiline
+            placeholder="Add class topic, reason, or reminder..."
+            placeholderTextColor={palette.textMuted}
+            style={[
+              styles.noteInput,
+              {
+                flex: 1,
+                backgroundColor: palette.control,
+                borderColor: palette.border,
+                color: palette.textPrimary,
+                fontFamily: FONT_FAMILIES.sansRegular,
+              },
+            ]}
+          />
+          <Pressable
+            onPress={handleSave}
+            disabled={saving || isFutureDate}
+            accessibilityLabel="Save Note"
+            style={[
+              styles.saveNoteQuickBtn,
+              { backgroundColor: BRAND_COLORS.primary },
+            ]}
+          >
+            <Check size={16} color="#050608" strokeWidth={2.5} />
+            <Text style={[styles.saveNoteQuickText, { fontFamily: FONT_FAMILIES.sansBold }]}>
+              Save Note
+            </Text>
+          </Pressable>
+        </View>
 
         {/* Actions */}
         <View style={styles.actionRow}>
@@ -847,7 +871,26 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 14,
     textAlignVertical: 'top',
+  },
+  noteInputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
     marginBottom: 16,
+  },
+  saveNoteQuickBtn: {
+    height: 44,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  saveNoteQuickText: {
+    color: '#050608',
+    fontSize: 12,
+    fontWeight: '700',
   },
   actionRow: {
     flexDirection: 'row',

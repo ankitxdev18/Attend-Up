@@ -1,6 +1,9 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -82,15 +85,19 @@ interface CalendarDayCellProps {
   dayNumber: number;
   inCurrentMonth: boolean;
   isToday: boolean;
+  isSelected: boolean;
   bgColor: string;
   todayBorderColor: string;
   todayTextColor: string;
   defaultTextColor: string;
   statusColor: string | null;
   statusShort: string | null;
+  pillBg: string | null;
+  pillBorder: string | null;
   hasNote: boolean;
   hasOt: boolean;
-  onPressDay: (dateISO: string) => void;
+  onSelectDay: (dateISO: string) => void;
+  onLongPressDay: (dateISO: string) => void;
 }
 
 const CalendarDayCell = React.memo(function CalendarDayCell({
@@ -98,27 +105,39 @@ const CalendarDayCell = React.memo(function CalendarDayCell({
   dayNumber,
   inCurrentMonth,
   isToday,
+  isSelected,
   bgColor,
   todayBorderColor,
   todayTextColor,
   defaultTextColor,
   statusColor,
   statusShort,
+  pillBg,
+  pillBorder,
   hasNote,
   hasOt,
-  onPressDay,
+  onSelectDay,
+  onLongPressDay,
 }: CalendarDayCellProps) {
+  const ringColor = isSelected
+    ? BRAND_COLORS.primary
+    : isToday
+      ? todayBorderColor
+      : 'transparent';
+  const showRing = isSelected || isToday;
+
   return (
     <View style={styles.dayCellSlot}>
       <GHTouchableOpacity
         activeOpacity={0.75}
-        onPress={() => onPressDay(dateISO)}
+        onPress={() => onSelectDay(dateISO)}
+        onLongPress={() => onLongPressDay(dateISO)}
         style={[
           styles.dayCell,
           {
             backgroundColor: bgColor,
-            borderColor: isToday ? todayBorderColor : 'transparent',
-            borderWidth: isToday ? 1.5 : 0,
+            borderColor: ringColor,
+            borderWidth: showRing ? 1.5 : 0,
             opacity: inCurrentMonth ? 1 : 0.3,
           },
         ]}
@@ -131,9 +150,10 @@ const CalendarDayCell = React.memo(function CalendarDayCell({
               color: isToday
                 ? todayTextColor
                 : statusColor ?? defaultTextColor,
-              fontFamily: isToday
-                ? FONT_FAMILIES.monoBold
-                : FONT_FAMILIES.monoMedium,
+              fontFamily:
+                isToday || isSelected
+                  ? FONT_FAMILIES.monoBold
+                  : FONT_FAMILIES.monoMedium,
             },
           ]}
         >
@@ -142,8 +162,25 @@ const CalendarDayCell = React.memo(function CalendarDayCell({
 
         <View style={styles.microRow}>
           {statusShort && statusColor ? (
-            <View style={[styles.microBadge, { backgroundColor: statusColor }]}>
-              <Text style={[styles.microStatus, { fontFamily: FONT_FAMILIES.sansBold }]}>
+            <View
+              style={[
+                styles.microBadge,
+                {
+                  backgroundColor: pillBg ?? statusColor,
+                  borderColor: pillBorder ?? 'transparent',
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.microStatus,
+                  TABULAR_NUMS,
+                  {
+                    color: statusColor,
+                    fontFamily: FONT_FAMILIES.monoBold,
+                  },
+                ]}
+              >
                 {statusShort}
               </Text>
             </View>
@@ -152,7 +189,7 @@ const CalendarDayCell = React.memo(function CalendarDayCell({
             <View
               style={[
                 styles.microDot,
-                { backgroundColor: BRAND_COLORS.emeraldText },
+                { backgroundColor: BRAND_COLORS.bright },
               ]}
             />
           ) : null}
@@ -242,8 +279,14 @@ export function SubjectDetailScreen() {
 
   const translateX = useSharedValue(0);
   const todayISO = formatDateISO(new Date());
+  const [selectedDate, setSelectedDate] = useState<string | null>(todayISO);
   const subjectId = subject?.id;
   const autoMarkSundays = subject?.autoMarkSundays ?? true;
+
+  const handleSelectDay = useCallback((dateISO: string) => {
+    void Haptics.selectionAsync();
+    setSelectedDate(dateISO);
+  }, []);
 
   const handleOpenDay = useCallback(
     (dateISO: string) => {
@@ -290,6 +333,36 @@ export function SubjectDetailScreen() {
     if (!subjectId) return 0;
     return computeStreak(subjectRecords, autoMarkSundays);
   }, [subjectId, subjectRecords, autoMarkSundays]);
+
+  const weeklyStats = useMemo(() => {
+    const now = new Date();
+    const day = now.getDay();
+    const diffToMon = day === 0 ? -6 : 1 - day;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + diffToMon);
+    let attended = 0;
+    let total = 0;
+    for (let i = 0; i < 7; i += 1) {
+      const dt = new Date(monday);
+      dt.setDate(monday.getDate() + i);
+      const iso = formatDateISO(dt);
+      if (iso > todayISO) break;
+      const rec = recordMap.get(iso);
+      if (rec?.status === 'present') {
+        const w = Math.max(1, Math.min(4, Math.round(rec.classesCount ?? 1)));
+        attended += w;
+        total += w;
+      } else if (rec?.status === 'absent') {
+        const w = Math.max(1, Math.min(4, Math.round(rec.classesCount ?? 1)));
+        total += w;
+      } else if (rec?.status === 'half_day') {
+        const w = Math.max(1, Math.min(4, Math.round(rec.classesCount ?? 1)));
+        attended += w * 0.5;
+        total += w;
+      }
+    }
+    return { attended, total };
+  }, [recordMap, todayISO]);
 
   const scopedRecords = useMemo(() => {
     if (analyticsScope === 'all') return subjectRecords;
@@ -545,10 +618,15 @@ export function SubjectDetailScreen() {
           </View>
         </View>
 
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.flex1}
+        >
         <ScrollView
           ref={scrollRef}
           style={styles.flex1}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: 64 }]}
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           {/* Capsule Month Switcher */}
@@ -819,6 +897,31 @@ export function SubjectDetailScreen() {
                         const hasNote = Boolean(rec?.note?.trim());
                         const hasOt = Boolean(rec && rec.overtimeHours > 0);
 
+                        const count = Math.max(1, Math.min(4, Math.round(rec?.classesCount ?? 1)));
+                        const shortLabel = meta
+                          ? count > 1 && (status === 'present' || status === 'absent')
+                            ? `${count}${meta.short}`
+                            : meta.short
+                          : null;
+                        const pillBg =
+                          status === 'present'
+                            ? 'rgba(16, 185, 129, 0.22)'
+                            : status === 'absent'
+                              ? 'rgba(251, 113, 133, 0.22)'
+                              : status === 'half_day'
+                                ? 'rgba(251, 191, 36, 0.22)'
+                                : status
+                                  ? 'rgba(148, 163, 184, 0.16)'
+                                  : null;
+                        const pillBorder =
+                          status === 'present'
+                            ? '#10B981'
+                            : status === 'absent'
+                              ? '#F43F5E'
+                              : status === 'half_day'
+                                ? 'rgba(251, 191, 36, 0.45)'
+                                : null;
+
                         const bgColor = meta
                           ? meta.tintBg
                           : cell.inCurrentMonth
@@ -832,15 +935,19 @@ export function SubjectDetailScreen() {
                             dayNumber={cell.dayNumber}
                             inCurrentMonth={cell.inCurrentMonth}
                             isToday={cell.isToday}
+                            isSelected={selectedDate === cell.dateISO}
                             bgColor={bgColor}
-                            todayBorderColor={BRAND_COLORS.primary}
+                            todayBorderColor={BRAND_COLORS.bright}
                             todayTextColor={BRAND_COLORS.bright}
                             defaultTextColor={palette.textPrimary}
                             statusColor={meta ? meta.color : null}
-                            statusShort={meta ? meta.short : null}
+                            statusShort={shortLabel}
+                            pillBg={pillBg}
+                            pillBorder={pillBorder}
                             hasNote={hasNote}
                             hasOt={hasOt}
-                            onPressDay={handleOpenDay}
+                            onSelectDay={handleSelectDay}
+                            onLongPressDay={handleOpenDay}
                           />
                         );
                       })}
@@ -963,6 +1070,99 @@ export function SubjectDetailScreen() {
             </LiquidGlassCard>
           )}
 
+          {/* Inline Date Action Bar (1-tap calendar marking) */}
+          {viewMode === 'calendar' && selectedDate ? (
+            <LiquidGlassCard borderRadius={20} style={styles.dateActionBar}>
+              <View style={styles.dateActionHeader}>
+                <Text
+                  style={[
+                    styles.dateActionTitle,
+                    { color: palette.textPrimary, fontFamily: FONT_FAMILIES.sansBold },
+                  ]}
+                >
+                  Selected: {formatDisplayDate(selectedDate)}
+                </Text>
+                <Text
+                  style={[
+                    styles.dateActionHint,
+                    { color: palette.textMuted, fontFamily: FONT_FAMILIES.sansMedium },
+                  ]}
+                >
+                  Tap to mark · Hold day for lectures
+                </Text>
+              </View>
+              <View style={styles.dateActionGrid}>
+                {(
+                  [
+                    { label: 'Present', status: 'present' as const, color: BRAND_COLORS.bright, bg: 'rgba(16, 185, 129, 0.16)', border: 'rgba(16, 185, 129, 0.35)' },
+                    { label: 'Absent', status: 'absent' as const, color: SEMANTIC_COLORS.absent, bg: 'rgba(251, 113, 133, 0.16)', border: 'rgba(251, 113, 133, 0.35)' },
+                    { label: 'Half Day', status: 'half_day' as const, color: SEMANTIC_COLORS.halfDay, bg: 'rgba(251, 191, 36, 0.16)', border: 'rgba(251, 191, 36, 0.35)' },
+                    { label: 'Holiday', status: 'holiday' as const, color: SEMANTIC_COLORS.holiday, bg: 'rgba(148, 163, 184, 0.14)', border: 'rgba(148, 163, 184, 0.28)' },
+                  ] as const
+                ).map((btn) => (
+                  <TactilePressable
+                    key={btn.status}
+                    onPress={() => {
+                      if (selectedDate > todayISO) {
+                        showToast('Future dates cannot be marked yet.', 'info');
+                        return;
+                      }
+                      void markDayStatus(subject.id, selectedDate, btn.status);
+                    }}
+                    style={[
+                      styles.dateActionBtn,
+                      { backgroundColor: btn.bg, borderColor: btn.border },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.dateActionBtnText,
+                        { color: btn.color, fontFamily: FONT_FAMILIES.sansBold },
+                      ]}
+                    >
+                      {btn.label}
+                    </Text>
+                  </TactilePressable>
+                ))}
+                <TactilePressable
+                  onPress={() => openRecordEditor(subject.id, selectedDate)}
+                  style={[
+                    styles.dateActionBtn,
+                    { backgroundColor: palette.control, borderColor: palette.border },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.dateActionBtnText,
+                      { color: palette.textPrimary, fontFamily: FONT_FAMILIES.sansSemiBold },
+                    ]}
+                  >
+                    Note
+                  </Text>
+                </TactilePressable>
+                <TactilePressable
+                  onPress={() => {
+                    if (selectedDate > todayISO) return;
+                    void markDayStatus(subject.id, selectedDate, null);
+                  }}
+                  style={[
+                    styles.dateActionBtn,
+                    { backgroundColor: palette.control, borderColor: palette.border },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.dateActionBtnText,
+                      { color: palette.textMuted, fontFamily: FONT_FAMILIES.sansSemiBold },
+                    ]}
+                  >
+                    Clear
+                  </Text>
+                </TactilePressable>
+              </View>
+            </LiquidGlassCard>
+          ) : null}
+
           {/* Primary Analytics & Predictor Bento Card */}
           <View
             style={[
@@ -993,15 +1193,36 @@ export function SubjectDetailScreen() {
                 </Text>
               </View>
 
-              <View
-                style={[
-                  styles.scopeToggle,
-                  {
-                    backgroundColor: palette.capsuleTrack,
-                    borderColor: palette.border,
-                  },
-                ]}
-              >
+              <View style={styles.scopeRightCol}>
+                <View
+                  style={[
+                    styles.weeklyPill,
+                    {
+                      backgroundColor: BRAND_COLORS.tintBg,
+                      borderColor: BRAND_COLORS.tintBorder,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.weeklyPillText,
+                      TABULAR_NUMS,
+                      { color: BRAND_COLORS.bright, fontFamily: FONT_FAMILIES.monoBold },
+                    ]}
+                  >
+                    This Week: {weeklyStats.attended}/{weeklyStats.total} attended
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.scopeToggle,
+                    {
+                      backgroundColor: palette.capsuleTrack,
+                      borderColor: palette.border,
+                    },
+                  ]}
+                >
                 <Pressable
                   onPress={() => setAnalyticsScope('all')}
                   style={[
@@ -1050,6 +1271,7 @@ export function SubjectDetailScreen() {
                     This Month
                   </Text>
                 </Pressable>
+                </View>
               </View>
             </View>
 
@@ -1304,21 +1526,44 @@ export function SubjectDetailScreen() {
                 >
                   Saved notes
                 </Text>
-                <TextInput
-                  value={noteQuery}
-                  onChangeText={setNoteQuery}
-                  placeholder="Filter saved notes..."
-                  placeholderTextColor={palette.textMuted}
-                  style={[
-                    styles.noteSearchInput,
-                    {
-                      backgroundColor: palette.control,
-                      borderColor: palette.border,
-                      color: palette.textPrimary,
-                      fontFamily: FONT_FAMILIES.sansRegular,
-                    },
-                  ]}
-                />
+                <View style={styles.noteFilterRow}>
+                  <TextInput
+                    value={noteQuery}
+                    onChangeText={setNoteQuery}
+                    onFocus={() => {
+                      setTimeout(() => {
+                        scrollRef.current?.scrollToEnd({ animated: true });
+                      }, 180);
+                    }}
+                    placeholder="Filter saved notes..."
+                    placeholderTextColor={palette.textMuted}
+                    style={[
+                      styles.noteSearchInput,
+                      {
+                        flex: 1,
+                        marginBottom: 0,
+                        backgroundColor: palette.control,
+                        borderColor: palette.border,
+                        color: palette.textPrimary,
+                        fontFamily: FONT_FAMILIES.sansRegular,
+                      },
+                    ]}
+                  />
+                  {noteQuery.trim().length > 0 ? (
+                    <Pressable
+                      onPress={() => {
+                        Keyboard.dismiss();
+                      }}
+                      style={[
+                        styles.noteFilterDoneBtn,
+                        { backgroundColor: BRAND_COLORS.primary },
+                      ]}
+                      accessibilityLabel="Done filtering notes"
+                    >
+                      <Check size={16} color="#050608" strokeWidth={2.5} />
+                    </Pressable>
+                  ) : null}
+                </View>
                 {savedNotes.length === 0 ? (
                   <Text
                     style={[
@@ -1365,6 +1610,7 @@ export function SubjectDetailScreen() {
             ) : null}
           </View>
         </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
 
       {/* Bulk Mark Sheet Modal */}
@@ -2013,17 +2259,17 @@ const styles = StyleSheet.create({
   dayCellSlot: {
     flex: 1,
     minWidth: 0,
-    height: 48,
+    height: 54,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dayCell: {
     width: '100%',
-    height: 48,
+    height: 54,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
+    gap: 4,
   },
   dayNum: {
     fontSize: 13,
@@ -2034,21 +2280,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 3,
-    minHeight: 15,
+    minHeight: 22,
+    width: '100%',
   },
   microBadge: {
-    minWidth: 20,
-    height: 14,
+    width: '86%',
+    minHeight: 22,
     paddingHorizontal: 4,
-    borderRadius: 5,
+    borderRadius: 7,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   microStatus: {
-    color: '#050608',
-    fontSize: 8.5,
-    fontWeight: '800',
-    lineHeight: 11,
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 14,
   },
   microDot: {
     width: 4,
@@ -2476,5 +2723,67 @@ const styles = StyleSheet.create({
     color: '#050608',
     fontSize: 14,
     fontWeight: '700',
+  },
+  dateActionBar: {
+    padding: 14,
+    gap: 10,
+  },
+  dateActionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  dateActionTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+  },
+  dateActionHint: {
+    fontSize: 11,
+  },
+  dateActionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  dateActionBtn: {
+    flexGrow: 1,
+    minWidth: '30%',
+    height: 38,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  dateActionBtnText: {
+    fontSize: 12.5,
+  },
+  scopeRightCol: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  weeklyPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  weeklyPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  noteFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  noteFilterDoneBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
