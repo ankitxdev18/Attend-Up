@@ -2,7 +2,7 @@
   "expo": {
     "name": "AttendUp",
     "slug": "ankit-kumar",
-    "version": "1.0.4",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -13,7 +13,7 @@
     },
     "android": {
       "package": "com.ankitxdev.attendup",
-      "versionCode": 5,
+      "versionCode": 4,
       "adaptiveIcon": {
         "backgroundColor": "#050608",
         "foregroundImage": "./assets/adaptive-icon.png"
@@ -77,6 +77,15 @@
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#050608"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "newArchEnabled": false,
+            "usesCleartextTraffic": false
+          }
         }
       ]
     ],

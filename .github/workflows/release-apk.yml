@@ -52,6 +52,9 @@ jobs:
       - name: Run Expo Prebuild (Android)
         run: npx expo prebuild --clean --platform android
 
+      - name: Apply Android Release ProGuard & Gradle Fixes
+        run: node scripts/fix-android-release.mjs
+
       - name: Resolve release version name
         id: version
         shell: bash

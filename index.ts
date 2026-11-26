@@ -1,5 +1,6 @@
 import 'react-native-gesture-handler';
 import * as SplashScreen from 'expo-splash-screen';
+import { enableScreens } from 'react-native-screens';
 import { registerRootComponent } from 'expo';
 
 import App from './App';
@@ -20,6 +21,12 @@ if (globalWithErrorUtils.ErrorUtils?.setGlobalHandler) {
     SplashScreen.hideAsync().catch(() => {});
     previousHandler?.(error, isFatal);
   });
+}
+
+try {
+  enableScreens(true);
+} catch {
+  // Ignore if native screens initialization is not supported in this runtime.
 }
 
 registerRootComponent(App);
