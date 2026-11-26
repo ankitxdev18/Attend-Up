@@ -83,7 +83,6 @@
         "expo-build-properties",
         {
           "android": {
-            "newArchEnabled": false,
             "usesCleartextTraffic": false
           }
         }

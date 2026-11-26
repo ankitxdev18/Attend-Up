@@ -3,7 +3,6 @@ import path from 'node:path';
 
 const androidDir = path.resolve(process.cwd(), 'android');
 const proguardPath = path.join(androidDir, 'app', 'proguard-rules.pro');
-const gradlePropsPath = path.join(androidDir, 'gradle.properties');
 
 const KEEP_MARKER = '# AttendUp Release Keep Rules';
 const KEEP_RULES = `
@@ -25,17 +24,4 @@ if (fs.existsSync(proguardPath)) {
   }
 } else {
   console.warn('Warning: android/app/proguard-rules.pro not found.');
-}
-
-if (fs.existsSync(gradlePropsPath)) {
-  let props = fs.readFileSync(gradlePropsPath, 'utf8');
-  if (/^newArchEnabled=.*$/m.test(props)) {
-    props = props.replace(/^newArchEnabled=.*$/m, 'newArchEnabled=false');
-  } else {
-    props = `${props.trimEnd()}\nnewArchEnabled=false\n`;
-  }
-  fs.writeFileSync(gradlePropsPath, props, 'utf8');
-  console.log('Verified newArchEnabled=false in android/gradle.properties');
-} else {
-  console.warn('Warning: android/gradle.properties not found.');
 }
