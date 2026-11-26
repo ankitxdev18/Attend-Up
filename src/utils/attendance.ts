@@ -104,6 +104,11 @@ export function getEffectiveStatus(
   return { status: null, isAutoSunday: false };
 }
 
+export function formatPercent(value: number, decimals = 1): string {
+  if (!Number.isFinite(value)) return `${(0).toFixed(decimals)}%`;
+  return `${value.toFixed(decimals)}%`;
+}
+
 export function computeAttendanceStats(
   records: AttendanceRecord[],
   targetPercentage = 75

@@ -16,6 +16,7 @@ import {
   computeAttendanceStats,
   formatMonthKey,
   formatMonthLabel,
+  formatPercent,
 } from '../utils/attendance';
 import {
   exportAttendanceCsv,
@@ -266,7 +267,7 @@ export function ReportsScreen() {
                 },
               ]}
             >
-              {stats.percentage.toFixed(2)}%
+              {formatPercent(stats.percentage, 1)}
             </Text>
           </View>
 

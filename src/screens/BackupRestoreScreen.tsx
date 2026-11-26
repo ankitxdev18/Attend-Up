@@ -21,8 +21,9 @@ import {
 import type { RootDrawerParamList } from '../navigation/types';
 import { useAttendance } from '../context/AttendanceContext';
 import {
+  applyJsonBackup,
   exportJsonBackup,
-  importJsonBackupFromPicker,
+  pickAndValidateJsonBackup,
 } from '../lib/reports';
 import { ValidationError } from '../lib/validation';
 import { refreshAllWidgets } from '../widgets/syncWidgets';
@@ -88,20 +89,45 @@ export function BackupRestoreScreen() {
     if (busy) return;
     setBusy('import');
     try {
-      const res = await importJsonBackupFromPicker();
-      if (!res.canceled) {
-        await refreshAll();
-        await refreshAllWidgets();
-        showToast(
-          `Restored ${res.subjectsCount} subjects & ${res.recordsCount} logs`,
-          'success'
-        );
-      }
+      const res = await pickAndValidateJsonBackup();
+      if (res.canceled) return;
+      Alert.alert(
+        'Restore JSON backup?',
+        `Replace current data with ${res.subjectsCount} subjects and ${res.recordsCount} logs? A safety snapshot will be saved automatically first.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Restore',
+            onPress: () => {
+              void (async () => {
+                setBusy('import');
+                try {
+                  await applyJsonBackup(res.parsed);
+                  await refreshAll();
+                  await refreshAllWidgets();
+                  showToast(
+                    `Restored ${res.subjectsCount} subjects & ${res.recordsCount} logs`,
+                    'success'
+                  );
+                } catch (err) {
+                  if (err instanceof ValidationError) {
+                    showToast(err.message, 'error');
+                  } else {
+                    showToast('Could not restore backup file', 'error');
+                  }
+                } finally {
+                  setBusy(null);
+                }
+              })();
+            },
+          },
+        ]
+      );
     } catch (err) {
       if (err instanceof ValidationError) {
         showToast(err.message, 'error');
       } else {
-        showToast('Could not import backup file', 'error');
+        showToast('Could not read backup file', 'error');
       }
     } finally {
       setBusy(null);

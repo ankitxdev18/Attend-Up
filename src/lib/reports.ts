@@ -8,9 +8,16 @@ import {
   formatDateISO,
   formatMonthKey,
   formatMonthLabel,
+  formatPercent,
   STATUS_META,
 } from '../utils/attendance';
-import { escapeCsvCell, escapeHtml, MAX_BACKUP_BYTES, ValidationError } from './validation';
+import {
+  escapeCsvCell,
+  escapeHtml,
+  MAX_BACKUP_BYTES,
+  validateBackupPayload,
+  ValidationError,
+} from './validation';
 import { restoreFromBackupJson } from '../db/database';
 
 export type ReportScope = 'this_month' | 'all_months';
@@ -58,7 +65,7 @@ export async function exportAttendancePdf(params: {
           <td class="num">${st.absent}</td>
           <td class="num">${st.halfDays}</td>
           <td class="num">${st.overtimeHours}h</td>
-          <td class="num" style="color:${badgeColor};font-weight:700;">${st.percentage.toFixed(2)}%</td>
+          <td class="num" style="color:${badgeColor};font-weight:700;">${formatPercent(st.percentage, 1)}</td>
           <td>${escapeHtml(st.predictorLine)}</td>
         </tr>
       `;
@@ -214,8 +221,9 @@ export async function exportJsonBackup(params: {
   });
 }
 
-export async function importJsonBackupFromPicker(): Promise<
-  { canceled: true } | { canceled: false; subjectsCount: number; recordsCount: number }
+export async function pickAndValidateJsonBackup(): Promise<
+  | { canceled: true }
+  | { canceled: false; parsed: unknown; subjectsCount: number; recordsCount: number }
 > {
   const result = await DocumentPicker.getDocumentAsync({
     type: ['application/json', 'text/plain', '*/*'],
@@ -249,11 +257,15 @@ export async function importJsonBackupFromPicker(): Promise<
     throw new ValidationError('Selected file is not valid JSON.');
   }
 
-  await restoreFromBackupJson(parsed);
-  const obj = parsed as { subjects?: unknown[]; records?: unknown[] };
+  const validated = validateBackupPayload(parsed);
   return {
     canceled: false,
-    subjectsCount: Array.isArray(obj.subjects) ? obj.subjects.length : 0,
-    recordsCount: Array.isArray(obj.records) ? obj.records.length : 0,
+    parsed: validated,
+    subjectsCount: validated.subjects.length,
+    recordsCount: validated.records.length,
   };
+}
+
+export async function applyJsonBackup(validatedPayload: unknown): Promise<void> {
+  await restoreFromBackupJson(validatedPayload);
 }

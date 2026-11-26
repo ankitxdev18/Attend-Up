@@ -155,9 +155,9 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
             accessibilityLabel="Toggle dark or light theme"
           >
             {isDark ? (
-              <Sun size={17} color={SEMANTIC_COLORS.halfDay} />
+              <Sun size={17} color="#94A3B8" />
             ) : (
-              <Moon size={17} color={palette.textPrimary} />
+              <Moon size={17} color="#94A3B8" />
             )}
           </Pressable>
         </View>

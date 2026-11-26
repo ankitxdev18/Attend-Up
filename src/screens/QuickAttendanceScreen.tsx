@@ -206,6 +206,7 @@ export function QuickAttendanceScreen() {
             showsHorizontalScrollIndicator={false}
             data={dateStrip}
             keyExtractor={(item) => item.dateISO}
+            initialScrollIndex={45}
             contentContainerStyle={styles.stripContent}
             getItemLayout={(_, index) => ({
               length: DATE_PILL_WIDTH + DATE_PILL_GAP,

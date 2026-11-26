@@ -56,6 +56,7 @@ import {
   formatDisplayDate,
   formatMonthKey,
   formatMonthLabel,
+  formatPercent,
   getEffectiveStatus,
   getLast12WeeksGrid,
   getMonthGrid,
@@ -86,14 +87,12 @@ interface CalendarDayCellProps {
   inCurrentMonth: boolean;
   isToday: boolean;
   isSelected: boolean;
-  bgColor: string;
-  todayBorderColor: string;
-  todayTextColor: string;
+  isDark: boolean;
+  tileBg: string;
+  tileBorder: string;
   defaultTextColor: string;
   statusColor: string | null;
   statusShort: string | null;
-  pillBg: string | null;
-  pillBorder: string | null;
   hasNote: boolean;
   hasOt: boolean;
   onSelectDay: (dateISO: string) => void;
@@ -106,25 +105,19 @@ const CalendarDayCell = React.memo(function CalendarDayCell({
   inCurrentMonth,
   isToday,
   isSelected,
-  bgColor,
-  todayBorderColor,
-  todayTextColor,
+  isDark,
+  tileBg,
+  tileBorder,
   defaultTextColor,
   statusColor,
   statusShort,
-  pillBg,
-  pillBorder,
   hasNote,
   hasOt,
   onSelectDay,
   onLongPressDay,
 }: CalendarDayCellProps) {
-  const ringColor = isSelected
-    ? BRAND_COLORS.primary
-    : isToday
-      ? todayBorderColor
-      : 'transparent';
-  const showRing = isSelected || isToday;
+  const outerBorderColor = isSelected ? '#34D399' : tileBorder;
+  const outerBorderWidth = isSelected ? 1.5 : 1;
 
   return (
     <View style={styles.dayCellSlot}>
@@ -132,12 +125,14 @@ const CalendarDayCell = React.memo(function CalendarDayCell({
         activeOpacity={0.75}
         onPress={() => onSelectDay(dateISO)}
         onLongPress={() => onLongPressDay(dateISO)}
+        accessibilityRole="button"
+        accessibilityLabel={`${dateISO}${statusShort ? `, ${statusShort}` : ''}${isToday ? ', Today' : ''}`}
         style={[
           styles.dayCell,
           {
-            backgroundColor: bgColor,
-            borderColor: ringColor,
-            borderWidth: showRing ? 1.5 : 0,
+            backgroundColor: tileBg,
+            borderColor: outerBorderColor,
+            borderWidth: outerBorderWidth,
             opacity: inCurrentMonth ? 1 : 0.3,
           },
         ]}
@@ -147,61 +142,44 @@ const CalendarDayCell = React.memo(function CalendarDayCell({
             styles.dayNum,
             TABULAR_NUMS,
             {
-              color: isToday
-                ? todayTextColor
-                : statusColor ?? defaultTextColor,
-              fontFamily:
-                isToday || isSelected
-                  ? FONT_FAMILIES.monoBold
-                  : FONT_FAMILIES.monoMedium,
+              color: isDark ? '#F8FAFC' : defaultTextColor,
+              fontFamily: FONT_FAMILIES.monoMedium,
             },
           ]}
         >
           {dayNumber}
         </Text>
 
-        <View style={styles.microRow}>
-          {statusShort && statusColor ? (
-            <View
-              style={[
-                styles.microBadge,
-                {
-                  backgroundColor: pillBg ?? statusColor,
-                  borderColor: pillBorder ?? 'transparent',
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.microStatus,
-                  TABULAR_NUMS,
-                  {
-                    color: statusColor,
-                    fontFamily: FONT_FAMILIES.monoBold,
-                  },
-                ]}
-              >
-                {statusShort}
-              </Text>
-            </View>
-          ) : null}
-          {hasNote ? (
-            <View
-              style={[
-                styles.microDot,
-                { backgroundColor: BRAND_COLORS.bright },
-              ]}
-            />
-          ) : null}
-          {hasOt ? (
-            <View
-              style={[
-                styles.microDot,
-                { backgroundColor: SEMANTIC_COLORS.halfDay },
-              ]}
-            />
-          ) : null}
-        </View>
+        {statusShort && statusColor ? (
+          <Text
+            style={[
+              styles.microStatus,
+              TABULAR_NUMS,
+              {
+                color: statusColor,
+                fontFamily: FONT_FAMILIES.monoBold,
+              },
+            ]}
+          >
+            {statusShort}
+          </Text>
+        ) : null}
+
+        {isToday || hasNote || hasOt ? (
+          <View style={styles.dotIndicatorRow}>
+            {isToday ? (
+              <View style={[styles.microDot, { backgroundColor: '#34D399' }]} />
+            ) : null}
+            {hasNote ? (
+              <View style={[styles.microDot, { backgroundColor: '#94A3B8' }]} />
+            ) : null}
+            {hasOt ? (
+              <View
+                style={[styles.microDot, { backgroundColor: SEMANTIC_COLORS.halfDay }]}
+              />
+            ) : null}
+          </View>
+        ) : null}
       </GHTouchableOpacity>
     </View>
   );
@@ -246,6 +224,7 @@ export function SubjectDetailScreen() {
     subjects,
     records,
     palette,
+    isDark,
     openRecordEditor,
     markDayStatus,
     saveSubject,
@@ -680,61 +659,54 @@ export function SubjectDetailScreen() {
             </Pressable>
           </View>
 
-          {/* Quick Operations Action Strip */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.quickOpsRow}
-          >
-            {/* 1. Today P / A Quick Toggle */}
+          {/* Balanced 3-Column Action Row */}
+          <View style={styles.quickOpsGrid}>
             <Pressable
               onPress={handleQuickTodayToggle}
+              accessibilityRole="button"
+              accessibilityLabel="Toggle today attendance"
               style={[
                 styles.quickOpPill,
                 {
                   backgroundColor: isTodayPresent
                     ? 'rgba(16, 185, 129, 0.16)'
                     : isTodayAbsent
-                      ? 'rgba(251, 113, 133, 0.16)'
+                      ? 'rgba(248, 113, 113, 0.16)'
                       : palette.card,
                   borderColor: isTodayPresent
                     ? BRAND_COLORS.emerald
                     : isTodayAbsent
-                      ? SEMANTIC_COLORS.absent
+                      ? '#F87171'
                       : palette.border,
                 },
               ]}
             >
               {isTodayAbsent ? (
-                <X size={13} color={SEMANTIC_COLORS.absent} />
+                <X size={13} color="#F87171" />
               ) : (
                 <Check size={13} color={BRAND_COLORS.emeraldText} />
               )}
               <Text
+                numberOfLines={1}
                 style={[
                   styles.quickOpText,
                   {
-                    color: isTodayAbsent
-                      ? SEMANTIC_COLORS.absent
-                      : BRAND_COLORS.emeraldText,
+                    color: isTodayAbsent ? '#F87171' : BRAND_COLORS.emeraldText,
                     fontFamily: FONT_FAMILIES.sansBold,
                   },
                 ]}
               >
-                {isTodayPresent
-                  ? 'Today P'
-                  : isTodayAbsent
-                    ? 'Today A'
-                    : 'Today P'}
+                {isTodayAbsent ? 'Today A' : 'Today P'}
               </Text>
             </Pressable>
 
-            {/* 2. Bulk Mark Action */}
             <Pressable
               onPress={() => {
                 void Haptics.selectionAsync();
                 setBulkOpen(true);
               }}
+              accessibilityRole="button"
+              accessibilityLabel="Bulk mark dates"
               style={[
                 styles.quickOpPill,
                 { backgroundColor: palette.card, borderColor: palette.border },
@@ -742,6 +714,7 @@ export function SubjectDetailScreen() {
             >
               <Layers size={13} color={palette.textPrimary} />
               <Text
+                numberOfLines={1}
                 style={[
                   styles.quickOpText,
                   { color: palette.textPrimary, fontFamily: FONT_FAMILIES.sansSemiBold },
@@ -751,9 +724,10 @@ export function SubjectDetailScreen() {
               </Text>
             </Pressable>
 
-            {/* 3. Sun Off: ON/OFF Pill */}
             <Pressable
               onPress={handleToggleSundayAuto}
+              accessibilityRole="button"
+              accessibilityLabel="Toggle Sunday auto holiday"
               style={[
                 styles.quickOpPill,
                 {
@@ -775,6 +749,7 @@ export function SubjectDetailScreen() {
                 }
               />
               <Text
+                numberOfLines={1}
                 style={[
                   styles.quickOpText,
                   {
@@ -788,73 +763,77 @@ export function SubjectDetailScreen() {
                 Sun Off: {subject.autoMarkSundays ? 'ON' : 'OFF'}
               </Text>
             </Pressable>
+          </View>
 
-            {/* 4. Calendar | Heatmap View Toggle */}
-            <View
+          {/* Segmented View Toggle: Calendar | Heatmap */}
+          <View
+            style={[
+              styles.viewToggleFull,
+              {
+                backgroundColor: palette.capsuleTrack,
+                borderColor: palette.border,
+              },
+            ]}
+          >
+            <Pressable
+              onPress={() => {
+                void Haptics.selectionAsync();
+                setViewMode('calendar');
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Calendar view"
               style={[
-                styles.viewToggleCapsule,
-                {
-                  backgroundColor: palette.capsuleTrack,
-                  borderColor: palette.border,
+                styles.viewToggleFullBtn,
+                viewMode === 'calendar' && {
+                  backgroundColor: palette.capsuleActive,
                 },
               ]}
             >
-              <Pressable
-                onPress={() => {
-                  void Haptics.selectionAsync();
-                  setViewMode('calendar');
-                }}
+              <Text
                 style={[
-                  styles.viewToggleBtn,
-                  viewMode === 'calendar' && {
-                    backgroundColor: palette.capsuleActive,
+                  styles.viewToggleText,
+                  {
+                    color:
+                      viewMode === 'calendar'
+                        ? palette.textPrimary
+                        : palette.textMuted,
+                    fontFamily: FONT_FAMILIES.sansBold,
                   },
                 ]}
               >
-                <Text
-                  style={[
-                    styles.viewToggleText,
-                    {
-                      color:
-                        viewMode === 'calendar'
-                          ? palette.textPrimary
-                          : palette.textMuted,
-                      fontFamily: FONT_FAMILIES.sansBold,
-                    },
-                  ]}
-                >
-                  Calendar
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  void Haptics.selectionAsync();
-                  setViewMode('heatmap');
-                }}
+                Calendar
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                void Haptics.selectionAsync();
+                setViewMode('heatmap');
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Heatmap view"
+              style={[
+                styles.viewToggleFullBtn,
+                viewMode === 'heatmap' && {
+                  backgroundColor: palette.capsuleActive,
+                },
+              ]}
+            >
+              <Text
                 style={[
-                  styles.viewToggleBtn,
-                  viewMode === 'heatmap' && {
-                    backgroundColor: palette.capsuleActive,
+                  styles.viewToggleText,
+                  {
+                    color:
+                      viewMode === 'heatmap'
+                        ? palette.textPrimary
+                        : palette.textMuted,
+                    fontFamily: FONT_FAMILIES.sansBold,
                   },
                 ]}
               >
-                <Text
-                  style={[
-                    styles.viewToggleText,
-                    {
-                      color:
-                        viewMode === 'heatmap'
-                          ? palette.textPrimary
-                          : palette.textMuted,
-                      fontFamily: FONT_FAMILIES.sansBold,
-                    },
-                  ]}
-                >
-                  Heatmap
-                </Text>
-              </Pressable>
-            </View>
-          </ScrollView>
+                Heatmap
+              </Text>
+            </Pressable>
+          </View>
 
           {/* Monthly Calendar Grid OR 12-Week GitHub Heatmap */}
           {viewMode === 'calendar' ? (
@@ -903,30 +882,35 @@ export function SubjectDetailScreen() {
                             ? `${count}${meta.short}`
                             : meta.short
                           : null;
-                        const pillBg =
-                          status === 'present'
-                            ? 'rgba(16, 185, 129, 0.22)'
-                            : status === 'absent'
-                              ? 'rgba(251, 113, 133, 0.22)'
-                              : status === 'half_day'
-                                ? 'rgba(251, 191, 36, 0.22)'
-                                : status
-                                  ? 'rgba(148, 163, 184, 0.16)'
-                                  : null;
-                        const pillBorder =
-                          status === 'present'
-                            ? '#10B981'
-                            : status === 'absent'
-                              ? '#F43F5E'
-                              : status === 'half_day'
-                                ? 'rgba(251, 191, 36, 0.45)'
-                                : null;
 
-                        const bgColor = meta
-                          ? meta.tintBg
-                          : cell.inCurrentMonth
-                            ? palette.control
-                            : 'transparent';
+                        let tileBg = isDark
+                          ? 'rgba(255, 255, 255, 0.03)'
+                          : palette.control;
+                        let tileBorder = isDark
+                          ? 'rgba(255, 255, 255, 0.06)'
+                          : palette.border;
+                        let statusColor: string | null = null;
+
+                        if (status === 'present') {
+                          tileBg = 'rgba(16, 185, 129, 0.16)';
+                          tileBorder = 'rgba(16, 185, 129, 0.35)';
+                          statusColor = '#34D399';
+                        } else if (status === 'absent') {
+                          tileBg = 'rgba(248, 113, 113, 0.16)';
+                          tileBorder = 'rgba(248, 113, 113, 0.35)';
+                          statusColor = '#F87171';
+                        } else if (status === 'half_day') {
+                          tileBg = 'rgba(251, 191, 36, 0.16)';
+                          tileBorder = 'rgba(251, 191, 36, 0.35)';
+                          statusColor = '#FBBF24';
+                        } else if (status) {
+                          tileBg = 'rgba(148, 163, 184, 0.12)';
+                          tileBorder = 'rgba(148, 163, 184, 0.24)';
+                          statusColor = '#94A3B8';
+                        } else if (!cell.inCurrentMonth) {
+                          tileBg = 'transparent';
+                          tileBorder = 'transparent';
+                        }
 
                         return (
                           <CalendarDayCell
@@ -936,14 +920,12 @@ export function SubjectDetailScreen() {
                             inCurrentMonth={cell.inCurrentMonth}
                             isToday={cell.isToday}
                             isSelected={selectedDate === cell.dateISO}
-                            bgColor={bgColor}
-                            todayBorderColor={BRAND_COLORS.bright}
-                            todayTextColor={BRAND_COLORS.bright}
+                            isDark={isDark}
+                            tileBg={tileBg}
+                            tileBorder={tileBorder}
                             defaultTextColor={palette.textPrimary}
-                            statusColor={meta ? meta.color : null}
+                            statusColor={statusColor}
                             statusShort={shortLabel}
-                            pillBg={pillBg}
-                            pillBorder={pillBorder}
                             hasNote={hasNote}
                             hasOt={hasOt}
                             onSelectDay={handleSelectDay}
@@ -1073,8 +1055,9 @@ export function SubjectDetailScreen() {
           {/* Inline Date Action Bar (1-tap calendar marking) */}
           {viewMode === 'calendar' && selectedDate ? (
             <LiquidGlassCard borderRadius={20} style={styles.dateActionBar}>
-              <View style={styles.dateActionHeader}>
+              <View style={styles.dateActionHeaderCol}>
                 <Text
+                  numberOfLines={1}
                   style={[
                     styles.dateActionTitle,
                     { color: palette.textPrimary, fontFamily: FONT_FAMILIES.sansBold },
@@ -1083,48 +1066,63 @@ export function SubjectDetailScreen() {
                   Selected: {formatDisplayDate(selectedDate)}
                 </Text>
                 <Text
+                  numberOfLines={1}
                   style={[
                     styles.dateActionHint,
-                    { color: palette.textMuted, fontFamily: FONT_FAMILIES.sansMedium },
+                    {
+                      color: selectedDate > todayISO ? '#F87171' : palette.textMuted,
+                      fontFamily: FONT_FAMILIES.sansMedium,
+                    },
                   ]}
                 >
-                  Tap to mark · Hold day for lectures
+                  {selectedDate > todayISO
+                    ? 'Future date — upcoming days cannot be marked'
+                    : 'Tap status below · Long-press date for notes'}
                 </Text>
               </View>
               <View style={styles.dateActionGrid}>
                 {(
                   [
-                    { label: 'Present', status: 'present' as const, color: BRAND_COLORS.bright, bg: 'rgba(16, 185, 129, 0.16)', border: 'rgba(16, 185, 129, 0.35)' },
-                    { label: 'Absent', status: 'absent' as const, color: SEMANTIC_COLORS.absent, bg: 'rgba(251, 113, 133, 0.16)', border: 'rgba(251, 113, 133, 0.35)' },
-                    { label: 'Half Day', status: 'half_day' as const, color: SEMANTIC_COLORS.halfDay, bg: 'rgba(251, 191, 36, 0.16)', border: 'rgba(251, 191, 36, 0.35)' },
-                    { label: 'Holiday', status: 'holiday' as const, color: SEMANTIC_COLORS.holiday, bg: 'rgba(148, 163, 184, 0.14)', border: 'rgba(148, 163, 184, 0.28)' },
+                    { label: 'Present', status: 'present' as const, color: '#34D399', bg: 'rgba(16, 185, 129, 0.16)', border: 'rgba(16, 185, 129, 0.35)' },
+                    { label: 'Absent', status: 'absent' as const, color: '#F87171', bg: 'rgba(248, 113, 113, 0.16)', border: 'rgba(248, 113, 113, 0.35)' },
+                    { label: 'Half Day', status: 'half_day' as const, color: '#FBBF24', bg: 'rgba(251, 191, 36, 0.16)', border: 'rgba(251, 191, 36, 0.35)' },
+                    { label: 'Holiday', status: 'holiday' as const, color: '#94A3B8', bg: 'rgba(148, 163, 184, 0.12)', border: 'rgba(148, 163, 184, 0.24)' },
                   ] as const
-                ).map((btn) => (
-                  <TactilePressable
-                    key={btn.status}
-                    onPress={() => {
-                      if (selectedDate > todayISO) {
-                        showToast('Future dates cannot be marked yet.', 'info');
-                        return;
-                      }
-                      void markDayStatus(subject.id, selectedDate, btn.status);
-                    }}
-                    style={[
-                      styles.dateActionBtn,
-                      { backgroundColor: btn.bg, borderColor: btn.border },
-                    ]}
-                  >
-                    <Text
+                ).map((btn) => {
+                  const isFuture = selectedDate > todayISO;
+                  return (
+                    <TactilePressable
+                      key={btn.status}
+                      disabled={isFuture}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Mark ${selectedDate} ${btn.label}`}
+                      onPress={() => {
+                        void markDayStatus(subject.id, selectedDate, btn.status);
+                      }}
                       style={[
-                        styles.dateActionBtnText,
-                        { color: btn.color, fontFamily: FONT_FAMILIES.sansBold },
+                        styles.dateActionBtn,
+                        {
+                          backgroundColor: btn.bg,
+                          borderColor: btn.border,
+                          opacity: isFuture ? 0.38 : 1,
+                        },
                       ]}
                     >
-                      {btn.label}
-                    </Text>
-                  </TactilePressable>
-                ))}
+                      <Text
+                        numberOfLines={1}
+                        style={[
+                          styles.dateActionBtnText,
+                          { color: btn.color, fontFamily: FONT_FAMILIES.sansBold },
+                        ]}
+                      >
+                        {btn.label}
+                      </Text>
+                    </TactilePressable>
+                  );
+                })}
                 <TactilePressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open note and lecture editor for ${selectedDate}`}
                   onPress={() => openRecordEditor(subject.id, selectedDate)}
                   style={[
                     styles.dateActionBtn,
@@ -1132,6 +1130,7 @@ export function SubjectDetailScreen() {
                   ]}
                 >
                   <Text
+                    numberOfLines={1}
                     style={[
                       styles.dateActionBtnText,
                       { color: palette.textPrimary, fontFamily: FONT_FAMILIES.sansSemiBold },
@@ -1141,16 +1140,23 @@ export function SubjectDetailScreen() {
                   </Text>
                 </TactilePressable>
                 <TactilePressable
+                  disabled={selectedDate > todayISO}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Clear status for ${selectedDate}`}
                   onPress={() => {
-                    if (selectedDate > todayISO) return;
                     void markDayStatus(subject.id, selectedDate, null);
                   }}
                   style={[
                     styles.dateActionBtn,
-                    { backgroundColor: palette.control, borderColor: palette.border },
+                    {
+                      backgroundColor: palette.control,
+                      borderColor: palette.border,
+                      opacity: selectedDate > todayISO ? 0.38 : 1,
+                    },
                   ]}
                 >
                   <Text
+                    numberOfLines={1}
                     style={[
                       styles.dateActionBtnText,
                       { color: palette.textMuted, fontFamily: FONT_FAMILIES.sansSemiBold },
@@ -1180,7 +1186,7 @@ export function SubjectDetailScreen() {
                   ]}
                 >
                   {stats.totalCounted > 0
-                    ? `${stats.percentage.toFixed(2)}%`
+                    ? formatPercent(stats.percentage, 1)
                     : '0.00%'}
                 </Text>
                 <Text
@@ -1799,7 +1805,10 @@ export function SubjectDetailScreen() {
             onPress={() => {}}
             style={[
               styles.simModalCard,
-              { backgroundColor: palette.sheet, borderColor: palette.border },
+              {
+                backgroundColor: isDark ? '#0E1114' : '#FFFFFF',
+                borderColor: palette.border,
+              },
             ]}
           >
             <View style={styles.simHeader}>
@@ -1856,7 +1865,7 @@ export function SubjectDetailScreen() {
                       { color: palette.textSecondary, fontFamily: FONT_FAMILIES.monoMedium },
                     ]}
                   >
-                    {allTimeStats.percentage.toFixed(1)}%
+                    {formatPercent(allTimeStats.percentage, 1)}
                   </Text>
                   <ArrowRight size={14} color={palette.textMuted} />
                   <Text
@@ -1871,7 +1880,7 @@ export function SubjectDetailScreen() {
                       },
                     ]}
                   >
-                    {simulatedStats.percentage.toFixed(2)}%
+                    {formatPercent(simulatedStats.percentage, 1)}
                   </Text>
                   {simPresent > 0 || simAbsent > 0 ? (
                     <View
@@ -1898,7 +1907,9 @@ export function SubjectDetailScreen() {
                           },
                         ]}
                       >
-                        {simDelta >= 0 ? `+${simDelta.toFixed(2)}%` : `${simDelta.toFixed(2)}%`}
+                        {simDelta >= 0
+                          ? `+${formatPercent(simDelta, 1)}`
+                          : formatPercent(simDelta, 1)}
                       </Text>
                     </View>
                   ) : null}
@@ -2190,33 +2201,35 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.5,
   },
-  quickOpsRow: {
-    gap: 8,
-    paddingRight: 16,
+  quickOpsGrid: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
   quickOpPill: {
-    height: 36,
-    paddingHorizontal: 12,
-    borderRadius: 999,
+    flex: 1,
+    minHeight: 44,
+    paddingHorizontal: 8,
+    borderRadius: 14,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 5,
   },
   quickOpText: {
     fontSize: 12,
   },
-  viewToggleCapsule: {
-    height: 36,
-    borderRadius: 999,
+  viewToggleFull: {
+    height: 44,
+    borderRadius: 16,
     borderWidth: 1,
     flexDirection: 'row',
     padding: 3,
   },
-  viewToggleBtn: {
-    paddingHorizontal: 10,
-    borderRadius: 999,
+  viewToggleFullBtn: {
+    flex: 1,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2248,54 +2261,44 @@ const styles = StyleSheet.create({
   },
   weeksWrap: {
     width: '100%',
-    gap: 5,
+    gap: 4,
   },
   weekRow: {
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
   },
   dayCellSlot: {
     flex: 1,
     minWidth: 0,
-    height: 54,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dayCell: {
     width: '100%',
-    height: 54,
-    borderRadius: 14,
+    height: 48,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: 2,
   },
   dayNum: {
-    fontSize: 13,
-    lineHeight: 16,
+    fontSize: 15,
+    lineHeight: 18,
   },
-  microRow: {
+  dotIndicatorRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 3,
-    minHeight: 22,
-    width: '100%',
-  },
-  microBadge: {
-    width: '86%',
-    minHeight: 22,
-    paddingHorizontal: 4,
-    borderRadius: 7,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    marginTop: 1,
   },
   microStatus: {
     fontSize: 11,
     fontWeight: '700',
-    lineHeight: 14,
+    lineHeight: 13,
   },
   microDot: {
     width: 4,
@@ -2707,13 +2710,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   presetChip: {
-    height: 34,
-    paddingHorizontal: 11,
-    borderRadius: 999,
+    width: '48.5%',
+    minHeight: 44,
+    paddingHorizontal: 12,
+    borderRadius: 14,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    justifyContent: 'center',
+    gap: 6,
   },
   presetText: {
     fontSize: 12,
@@ -2728,18 +2733,18 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 10,
   },
-  dateActionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
+  dateActionHeaderCol: {
+    flexDirection: 'column',
+    gap: 2,
   },
   dateActionTitle: {
     fontSize: 13.5,
     fontWeight: '700',
+    flexShrink: 1,
   },
   dateActionHint: {
     fontSize: 11,
+    flexShrink: 1,
   },
   dateActionGrid: {
     flexDirection: 'row',
@@ -2749,7 +2754,7 @@ const styles = StyleSheet.create({
   dateActionBtn: {
     flexGrow: 1,
     minWidth: '30%',
-    height: 38,
+    minHeight: 44,
     borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
