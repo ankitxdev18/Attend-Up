@@ -15,12 +15,14 @@ import {
   type UpdateInfo,
 } from '../lib/appUpdater';
 import {
+  BRAND_COLORS,
   FONT_FAMILIES,
   HEADING_STYLE,
   TABULAR_NUMS,
   UI_METRICS,
 } from '../theme/tokens';
 import { BrandLogo } from './BrandLogo';
+import { LiquidGlassCard } from './LiquidGlassCard';
 import { TactilePressable } from './TactilePressable';
 
 interface UpdateModalProps {
@@ -29,7 +31,7 @@ interface UpdateModalProps {
 }
 
 export function UpdateModal({ updateInfo, onClose }: UpdateModalProps) {
-  const { palette, activeAccent, isDark, showToast } = useAttendance();
+  const { palette, showToast } = useAttendance();
   const [downloading, setDownloading] = useState(false);
   const [progress, setProgress] = useState(0);
 
@@ -64,17 +66,14 @@ export function UpdateModal({ updateInfo, onClose }: UpdateModalProps) {
       onRequestClose={handleLater}
     >
       <View style={styles.overlay}>
-        <View
-          style={[
-            styles.card,
-            {
-              backgroundColor: isDark ? '#0E1014' : palette.sheet,
-              borderColor: palette.border,
-            },
-          ]}
+        <LiquidGlassCard
+          borderRadius={26}
+          useNativeBlur
+          focused
+          style={styles.card}
         >
           <View style={styles.headerRow}>
-            <BrandLogo size={44} accentColor={activeAccent.primary} />
+            <BrandLogo size={44} accentColor={BRAND_COLORS.primary} />
             <View style={styles.headerTextCol}>
               <Text
                 style={[
@@ -89,8 +88,8 @@ export function UpdateModal({ updateInfo, onClose }: UpdateModalProps) {
                 style={[
                   styles.versionBadge,
                   {
-                    backgroundColor: activeAccent.tintBg,
-                    borderColor: activeAccent.borderTint,
+                    backgroundColor: BRAND_COLORS.tintBg,
+                    borderColor: BRAND_COLORS.tintBorder,
                   },
                 ]}
               >
@@ -99,7 +98,7 @@ export function UpdateModal({ updateInfo, onClose }: UpdateModalProps) {
                     styles.versionBadgeText,
                     TABULAR_NUMS,
                     {
-                      color: activeAccent.bright,
+                      color: BRAND_COLORS.bright,
                       fontFamily: FONT_FAMILIES.monoBold,
                     },
                   ]}
@@ -149,7 +148,7 @@ export function UpdateModal({ updateInfo, onClose }: UpdateModalProps) {
                     styles.progressPct,
                     TABULAR_NUMS,
                     {
-                      color: activeAccent.bright,
+                      color: BRAND_COLORS.bright,
                       fontFamily: FONT_FAMILIES.monoBold,
                     },
                   ]}
@@ -164,7 +163,7 @@ export function UpdateModal({ updateInfo, onClose }: UpdateModalProps) {
                   style={[
                     styles.progressFill,
                     {
-                      backgroundColor: activeAccent.primary,
+                      backgroundColor: BRAND_COLORS.primary,
                       width: `${progress}%`,
                     },
                   ]}
@@ -205,7 +204,7 @@ export function UpdateModal({ updateInfo, onClose }: UpdateModalProps) {
               style={[
                 styles.updateBtn,
                 {
-                  backgroundColor: activeAccent.primary,
+                  backgroundColor: BRAND_COLORS.primary,
                   opacity: downloading ? 0.75 : 1,
                 },
               ]}
@@ -221,7 +220,7 @@ export function UpdateModal({ updateInfo, onClose }: UpdateModalProps) {
               </Text>
             </TactilePressable>
           </View>
-        </View>
+        </LiquidGlassCard>
       </View>
     </Modal>
   );

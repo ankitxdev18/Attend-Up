@@ -52,11 +52,14 @@ function RecordEditorBody({
   lockAttendance,
   onClose,
 }: RecordEditorBodyProps) {
-  const { palette, activeAccent, saveFullRecord, showToast } = useAttendance();
+  const { palette, saveFullRecord, showToast } = useAttendance();
   const noteInputRef = useRef<React.ComponentRef<typeof BottomSheetTextInput>>(null);
 
   const [status, setStatus] = useState<AttendanceStatus>(existingRecord?.status ?? null);
   const [overtimeHours, setOvertimeHours] = useState(existingRecord?.overtimeHours ?? 0);
+  const [classesCount, setClassesCount] = useState(() =>
+    Math.max(1, Math.min(4, Math.round(existingRecord?.classesCount ?? 1)))
+  );
   const [shift, setShift] = useState<ShiftType>(existingRecord?.shift ?? '');
   const [note, setNote] = useState(existingRecord?.note ?? '');
   const [saving, setSaving] = useState(false);
@@ -108,6 +111,7 @@ function RecordEditorBody({
         date,
         status,
         overtimeHours,
+        classesCount,
         shift,
         note: note.trim(),
       });
@@ -129,6 +133,7 @@ function RecordEditorBody({
         date,
         status: null,
         overtimeHours: 0,
+        classesCount: 1,
         shift: '',
         note: '',
       });
@@ -364,6 +369,64 @@ function RecordEditorBody({
           })}
         </View>
 
+        {/* Classes Count Stepper (1..4 lectures/labs) */}
+        <View style={styles.noteHeaderRow}>
+          <Text
+            style={[
+              styles.sectionLabel,
+              { color: palette.textSecondary, fontFamily: FONT_FAMILIES.sansSemiBold },
+            ]}
+          >
+            Classes Count
+          </Text>
+          <Text
+            style={[
+              styles.charCount,
+              TABULAR_NUMS,
+              { color: palette.textMuted, fontFamily: FONT_FAMILIES.monoMedium },
+            ]}
+          >
+            {classesCount} {classesCount === 1 ? 'lecture' : 'lectures'}
+          </Text>
+        </View>
+        <View style={styles.shiftRow}>
+          {[1, 2, 3, 4].map((count) => {
+            const active = classesCount === count;
+            return (
+              <Pressable
+                key={count}
+                disabled={isFutureDate}
+                onPress={async () => {
+                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setClassesCount(count);
+                }}
+                style={[
+                  styles.shiftPill,
+                  {
+                    backgroundColor: active
+                      ? BRAND_COLORS.tintBg
+                      : palette.control,
+                    borderColor: active ? BRAND_COLORS.primary : palette.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.shiftText,
+                    TABULAR_NUMS,
+                    {
+                      color: active ? BRAND_COLORS.bright : palette.textSecondary,
+                      fontFamily: FONT_FAMILIES.monoBold,
+                    },
+                  ]}
+                >
+                  {count}x
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
         {/* Shift Selector */}
         <Text
           style={[
@@ -480,7 +543,7 @@ function RecordEditorBody({
             style={[
               styles.saveBtn,
               {
-                backgroundColor: activeAccent.primary,
+                backgroundColor: BRAND_COLORS.primary,
                 opacity: saving || isFutureDate ? 0.6 : 1,
               },
             ]}

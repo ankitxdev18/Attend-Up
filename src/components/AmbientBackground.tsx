@@ -19,75 +19,55 @@ interface AmbientBackgroundProps extends ViewProps {
   children: React.ReactNode;
 }
 
-const CYCLE_DURATION_MS = 14000;
+const CYCLE_DURATION_MS = 16000;
+const BREATHE_DURATION_MS = 5000;
 
-interface OrbSvgProps {
-  primaryColor: string;
-  glowColor: string;
+interface AuroraOrbSvgProps {
+  id: string;
+  size: number;
   fadeTarget: string;
   isDark: boolean;
 }
 
-const PrimaryPerimeterOrbSvg = React.memo(function PrimaryPerimeterOrbSvg({
-  primaryColor,
-  glowColor,
+const AuroraOrbSvg = React.memo(function AuroraOrbSvg({
+  id,
+  size,
   fadeTarget,
   isDark,
-}: OrbSvgProps) {
+}: AuroraOrbSvgProps) {
+  const half = size / 2;
   return (
-    <Svg width={440} height={440} viewBox="0 0 440 440">
+    <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       <Defs>
-        <RadialGradient id="perimeterPrimaryGrad" cx="50%" cy="50%" r="50%">
+        <RadialGradient id={id} cx="50%" cy="50%" r="50%">
           <Stop
             offset="0%"
-            stopColor={primaryColor}
-            stopOpacity={isDark ? '0.44' : '0.26'}
+            stopColor="#34D399"
+            stopOpacity={isDark ? '0.34' : '0.20'}
           />
           <Stop
-            offset="50%"
-            stopColor={glowColor}
-            stopOpacity={isDark ? '0.15' : '0.10'}
+            offset="42%"
+            stopColor="#10B981"
+            stopOpacity={isDark ? '0.16' : '0.10'}
+          />
+          <Stop
+            offset="74%"
+            stopColor="#059669"
+            stopOpacity={isDark ? '0.06' : '0.04'}
           />
           <Stop offset="100%" stopColor={fadeTarget} stopOpacity="0" />
         </RadialGradient>
       </Defs>
-      <Circle cx="220" cy="220" r="220" fill="url(#perimeterPrimaryGrad)" />
-    </Svg>
-  );
-});
-
-const OppositePerimeterOrbSvg = React.memo(function OppositePerimeterOrbSvg({
-  primaryColor,
-  glowColor,
-  fadeTarget,
-  isDark,
-}: OrbSvgProps) {
-  return (
-    <Svg width={400} height={400} viewBox="0 0 400 400">
-      <Defs>
-        <RadialGradient id="perimeterOppositeGrad" cx="50%" cy="50%" r="50%">
-          <Stop
-            offset="0%"
-            stopColor={glowColor}
-            stopOpacity={isDark ? '0.32' : '0.20'}
-          />
-          <Stop
-            offset="55%"
-            stopColor={primaryColor}
-            stopOpacity={isDark ? '0.10' : '0.07'}
-          />
-          <Stop offset="100%" stopColor={fadeTarget} stopOpacity="0" />
-        </RadialGradient>
-      </Defs>
-      <Circle cx="200" cy="200" r="200" fill="url(#perimeterOppositeGrad)" />
+      <Circle cx={half} cy={half} r={half} fill={`url(#${id})`} />
     </Svg>
   );
 });
 
 /**
- * Full-screen 4-edge perimeter Gemini-style ambient light background.
- * Runs 100% on the native UI thread via Reanimated, memoizes SVG gradients,
- * and pauses automatically when the app enters the background.
+ * Full-perimeter Gemini-style flowing Emerald aurora:
+ * 3 overlapping soft-feathered SVG radial clouds (520, 480, 440) glide
+ * continuously around Top -> Right -> Bottom -> Left edges on the UI thread
+ * while breathing gently in scale (0.95 -> 1.18) and pausing in background.
  */
 export function AmbientBackground({
   tone: _tone,
@@ -95,17 +75,20 @@ export function AmbientBackground({
   children,
   ...rest
 }: AmbientBackgroundProps) {
-  const { palette, activeAccent, isDark } = useAttendance();
+  const { palette, isDark } = useAttendance();
   const { width, height } = useWindowDimensions();
 
-  const perimeterProgress = useSharedValue(0);
+  const perimeter = useSharedValue(0);
+  const breathe = useSharedValue(0);
 
   useEffect(() => {
-    const startPerimeterAnimation = () => {
-      const current = perimeterProgress.value % 1;
+    const sine = Easing.inOut(Easing.sin);
+
+    const startAnimations = () => {
+      const current = perimeter.value % 1;
       const remainingMs = Math.max(100, Math.round((1 - current) * CYCLE_DURATION_MS));
       if (current > 0.001) {
-        perimeterProgress.value = withSequence(
+        perimeter.value = withSequence(
           withTiming(1, { duration: remainingMs, easing: Easing.linear }),
           withTiming(0, { duration: 0 }),
           withRepeat(
@@ -115,33 +98,78 @@ export function AmbientBackground({
           )
         );
       } else {
-        perimeterProgress.value = withRepeat(
+        perimeter.value = withRepeat(
           withTiming(1, { duration: CYCLE_DURATION_MS, easing: Easing.linear }),
           -1,
           false
         );
       }
+
+      breathe.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration: BREATHE_DURATION_MS, easing: sine }),
+          withTiming(0, { duration: BREATHE_DURATION_MS, easing: sine })
+        ),
+        -1,
+        false
+      );
     };
 
-    startPerimeterAnimation();
+    startAnimations();
 
     const sub = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
-        startPerimeterAnimation();
+        startAnimations();
       } else {
-        cancelAnimation(perimeterProgress);
+        cancelAnimation(perimeter);
+        cancelAnimation(breathe);
       }
     });
 
     return () => {
       sub.remove();
-      cancelAnimation(perimeterProgress);
+      cancelAnimation(perimeter);
+      cancelAnimation(breathe);
     };
-  }, [perimeterProgress]);
+  }, [perimeter, breathe]);
 
-  // Primary Edge Orb (440x440, center offset 220): Top-Left -> Top-Right -> Bottom-Right -> Bottom-Left -> Top-Left
-  const primaryOrbStyle = useAnimatedStyle(() => {
-    const p = perimeterProgress.value;
+  // Orb 1 (520x520, half 260) — phase 0
+  const orb1Style = useAnimatedStyle(() => {
+    const p = perimeter.value;
+    const translateX = interpolate(
+      p,
+      [0, 0.25, 0.5, 0.75, 1],
+      [-260, width - 260, width - 260, -260, -260]
+    );
+    const translateY = interpolate(
+      p,
+      [0, 0.25, 0.5, 0.75, 1],
+      [-260, -260, height - 260, height - 260, -260]
+    );
+    const scale = 0.95 + breathe.value * 0.23; // 0.95 -> 1.18
+    return { transform: [{ translateX }, { translateY }, { scale }] };
+  });
+
+  // Orb 2 (480x480, half 240) — phase +0.33
+  const orb2Style = useAnimatedStyle(() => {
+    const p = (perimeter.value + 0.33) % 1;
+    const translateX = interpolate(
+      p,
+      [0, 0.25, 0.5, 0.75, 1],
+      [-240, width - 240, width - 240, -240, -240]
+    );
+    const translateY = interpolate(
+      p,
+      [0, 0.25, 0.5, 0.75, 1],
+      [-240, -240, height - 240, height - 240, -240]
+    );
+    const scale = 1.12 - breathe.value * 0.17;
+    return { transform: [{ translateX }, { translateY }, { scale }] };
+  });
+
+  // Orb 3 (440x440, half 220) — phase +0.66
+  const orb3Style = useAnimatedStyle(() => {
+    const p = (perimeter.value + 0.66) % 1;
     const translateX = interpolate(
       p,
       [0, 0.25, 0.5, 0.75, 1],
@@ -152,27 +180,8 @@ export function AmbientBackground({
       [0, 0.25, 0.5, 0.75, 1],
       [-220, -220, height - 220, height - 220, -220]
     );
-    return {
-      transform: [{ translateX }, { translateY }],
-    };
-  });
-
-  // Counter-Phase Opposite Edge Orb (400x400, center offset 200): Bottom-Right -> Bottom-Left -> Top-Left -> Top-Right -> Bottom-Right
-  const oppositeOrbStyle = useAnimatedStyle(() => {
-    const p = perimeterProgress.value;
-    const translateX = interpolate(
-      p,
-      [0, 0.25, 0.5, 0.75, 1],
-      [width - 200, -200, -200, width - 200, width - 200]
-    );
-    const translateY = interpolate(
-      p,
-      [0, 0.25, 0.5, 0.75, 1],
-      [height - 200, height - 200, -200, -200, height - 200]
-    );
-    return {
-      transform: [{ translateX }, { translateY }],
-    };
+    const scale = 0.98 + breathe.value * 0.16;
+    return { transform: [{ translateX }, { translateY }, { scale }] };
   });
 
   const fadeTarget = isDark ? '#050608' : '#F7F8FA';
@@ -183,22 +192,16 @@ export function AmbientBackground({
       {...rest}
     >
       <View pointerEvents="none" style={styles.ambientContainer}>
-        <Animated.View style={[styles.primaryOrbWrap, primaryOrbStyle]}>
-          <PrimaryPerimeterOrbSvg
-            primaryColor={activeAccent.primary}
-            glowColor={activeAccent.glow}
-            fadeTarget={fadeTarget}
-            isDark={isDark}
-          />
+        <Animated.View style={[styles.orb520, orb1Style]}>
+          <AuroraOrbSvg id="auroraOrb1" size={520} fadeTarget={fadeTarget} isDark={isDark} />
         </Animated.View>
 
-        <Animated.View style={[styles.oppositeOrbWrap, oppositeOrbStyle]}>
-          <OppositePerimeterOrbSvg
-            primaryColor={activeAccent.primary}
-            glowColor={activeAccent.glow}
-            fadeTarget={fadeTarget}
-            isDark={isDark}
-          />
+        <Animated.View style={[styles.orb480, orb2Style]}>
+          <AuroraOrbSvg id="auroraOrb2" size={480} fadeTarget={fadeTarget} isDark={isDark} />
+        </Animated.View>
+
+        <Animated.View style={[styles.orb440, orb3Style]}>
+          <AuroraOrbSvg id="auroraOrb3" size={440} fadeTarget={fadeTarget} isDark={isDark} />
         </Animated.View>
       </View>
 
@@ -228,19 +231,26 @@ const styles = StyleSheet.create({
     bottom: 0,
     overflow: 'hidden',
   },
-  primaryOrbWrap: {
+  orb520: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 520,
+    height: 520,
+  },
+  orb480: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 480,
+    height: 480,
+  },
+  orb440: {
     position: 'absolute',
     top: 0,
     left: 0,
     width: 440,
     height: 440,
-  },
-  oppositeOrbWrap: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: 400,
-    height: 400,
   },
   menuIconWrap: {
     width: 18,

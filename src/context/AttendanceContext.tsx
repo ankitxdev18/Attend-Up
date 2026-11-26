@@ -16,13 +16,10 @@ import type {
   SafetySnapshot,
   SortMode,
   Subject,
-  ThemeAccentId,
 } from '../types/attendance';
 import {
   DARK_PALETTE,
-  getThemeAccentPreset,
   LIGHT_PALETTE,
-  type ThemeAccentPreset,
   type ThemePalette,
 } from '../theme/tokens';
 import {
@@ -72,7 +69,6 @@ interface AttendanceContextValue {
   sortMode: SortMode;
   setSortMode: (mode: SortMode) => void;
   palette: ThemePalette;
-  activeAccent: ThemeAccentPreset;
   isDark: boolean;
   lockedByPin: boolean;
   unlockApp: () => void;
@@ -84,7 +80,6 @@ interface AttendanceContextValue {
   dismissToast: () => void;
   refreshAll: () => Promise<void>;
   toggleDarkMode: () => Promise<void>;
-  updateThemeAccent: (presetId: ThemeAccentId) => Promise<void>;
   saveSettingsPatch: (patch: Partial<AppSettings>) => Promise<AppSettings>;
   saveSubject: (input: {
     id?: string;
@@ -346,18 +341,6 @@ export function AttendanceProvider({ children }: { children: React.ReactNode }) 
     await saveSettingsPatch({ darkMode: !settings.darkMode });
   }, [saveSettingsPatch, settings.darkMode]);
 
-  const updateThemeAccent = useCallback(
-    async (presetId: ThemeAccentId) => {
-      await saveSettingsPatch({ themeAccent: presetId });
-    },
-    [saveSettingsPatch]
-  );
-
-  const activeAccent = useMemo(
-    () => getThemeAccentPreset(settings.themeAccent),
-    [settings.themeAccent]
-  );
-
   const saveSubject = useCallback(
     async (input: {
       id?: string;
@@ -426,6 +409,7 @@ export function AttendanceProvider({ children }: { children: React.ReactNode }) 
               date,
               status: previous?.status ?? null,
               overtimeHours: previous?.overtimeHours ?? 0,
+              classesCount: previous?.classesCount ?? 1,
               shift: previous?.shift ?? '',
               note: previous?.note ?? '',
             });
@@ -475,6 +459,7 @@ export function AttendanceProvider({ children }: { children: React.ReactNode }) 
               date: record.date,
               status: previous?.status ?? null,
               overtimeHours: previous?.overtimeHours ?? 0,
+              classesCount: previous?.classesCount ?? 1,
               shift: previous?.shift ?? '',
               note: previous?.note ?? '',
             });
@@ -585,7 +570,6 @@ export function AttendanceProvider({ children }: { children: React.ReactNode }) 
       sortMode,
       setSortMode,
       palette,
-      activeAccent,
       isDark: settings.darkMode,
       lockedByPin,
       unlockApp,
@@ -594,7 +578,6 @@ export function AttendanceProvider({ children }: { children: React.ReactNode }) 
       dismissToast,
       refreshAll,
       toggleDarkMode,
-      updateThemeAccent,
       saveSettingsPatch,
       saveSubject,
       deleteSubject,
@@ -616,7 +599,6 @@ export function AttendanceProvider({ children }: { children: React.ReactNode }) 
       snapshots,
       sortMode,
       palette,
-      activeAccent,
       lockedByPin,
       unlockApp,
       overallPercentage,
@@ -624,7 +606,6 @@ export function AttendanceProvider({ children }: { children: React.ReactNode }) 
       dismissToast,
       refreshAll,
       toggleDarkMode,
-      updateThemeAccent,
       saveSettingsPatch,
       saveSubject,
       deleteSubject,

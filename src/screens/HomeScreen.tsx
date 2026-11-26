@@ -42,6 +42,7 @@ import type { SortMode, Subject } from '../types/attendance';
 import { useAttendance } from '../context/AttendanceContext';
 import {
   computeAttendanceStats,
+  computeStreak,
   formatDateISO,
   getEffectiveStatus,
   parseDateISO,
@@ -59,6 +60,7 @@ import {
 } from '../theme/tokens';
 import { AmbientCanvas, MinimalMenuIcon } from '../components/AmbientCanvas';
 import { CircularProgressRing } from '../components/CircularProgressRing';
+import { LiquidGlassCard } from '../components/LiquidGlassCard';
 import { SubjectFormModal } from '../components/SubjectFormModal';
 
 const SORT_OPTIONS: { mode: SortMode; label: string }[] = [
@@ -111,14 +113,10 @@ const SubjectBentoCard = React.memo(function SubjectBentoCard({
       onLongPress={() => onOpenMenu(subject)}
       style={styles.cardPressableWrap}
     >
-      <View
-        style={[
-          styles.subjectCard,
-          {
-            backgroundColor: isDark ? '#0E1014' : '#FFFFFF',
-            borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E4E4E7',
-          },
-        ]}
+      <LiquidGlassCard
+        borderRadius={24}
+        focused={isOnTrack && stats.totalCounted > 0}
+        style={styles.subjectCard}
       >
         <View style={styles.cardLeft}>
           <View style={styles.cardTitleRow}>
@@ -205,7 +203,7 @@ const SubjectBentoCard = React.memo(function SubjectBentoCard({
             <MoreVertical size={15} color={palette.textSecondary} />
           </Pressable>
         </View>
-      </View>
+      </LiquidGlassCard>
     </TactilePressable>
   );
 });
@@ -220,7 +218,6 @@ export function HomeScreen() {
     records,
     settings,
     palette,
-    activeAccent,
     isDark,
     overallPercentage,
     sortMode,
@@ -383,6 +380,17 @@ export function HomeScreen() {
     );
   }, [subjectCardsData]);
 
+  const currentStreak = useMemo(() => {
+    if (subjects.length === 0) return 0;
+    let best = 0;
+    for (const sub of subjects) {
+      const subRecs = records.filter((r) => r.subjectId === sub.id);
+      const s = computeStreak(subRecs, sub.autoMarkSundays);
+      if (s > best) best = s;
+    }
+    return best;
+  }, [subjects, records]);
+
   const heroSubline = hasAnyCounted
     ? overallPercentage >= 75
       ? 'All subjects on track'
@@ -539,42 +547,64 @@ export function HomeScreen() {
                     >
                       {heroSubline}
                     </Text>
-                    {daysLeftInSemester !== null && daysLeftInSemester >= 0 ? (
-                      <View
-                        style={[
-                          styles.semesterPill,
-                          {
-                            backgroundColor: activeAccent.tintBg,
-                            borderColor: activeAccent.borderTint,
-                          },
-                        ]}
-                      >
-                        <Text
+                    <View style={styles.heroPillsRow}>
+                      {currentStreak > 0 ? (
+                        <View
                           style={[
-                            styles.semesterPillText,
-                            TABULAR_NUMS,
+                            styles.semesterPill,
                             {
-                              color: activeAccent.bright,
-                              fontFamily: FONT_FAMILIES.sansSemiBold,
+                              backgroundColor: BRAND_COLORS.tintBg,
+                              borderColor: BRAND_COLORS.tintBorder,
                             },
                           ]}
                         >
-                          {daysLeftInSemester}{' '}
-                          {daysLeftInSemester === 1 ? 'day' : 'days'} left in semester
-                        </Text>
-                      </View>
-                    ) : null}
+                          <Text
+                            style={[
+                              styles.semesterPillText,
+                              TABULAR_NUMS,
+                              {
+                                color: BRAND_COLORS.bright,
+                                fontFamily: FONT_FAMILIES.monoBold,
+                              },
+                            ]}
+                          >
+                            {currentStreak}d Streak
+                          </Text>
+                        </View>
+                      ) : null}
+                      {daysLeftInSemester !== null && daysLeftInSemester >= 0 ? (
+                        <View
+                          style={[
+                            styles.semesterPill,
+                            {
+                              backgroundColor: BRAND_COLORS.tintBg,
+                              borderColor: BRAND_COLORS.tintBorder,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.semesterPillText,
+                              TABULAR_NUMS,
+                              {
+                                color: BRAND_COLORS.bright,
+                                fontFamily: FONT_FAMILIES.sansSemiBold,
+                              },
+                            ]}
+                          >
+                            {daysLeftInSemester}{' '}
+                            {daysLeftInSemester === 1 ? 'day' : 'days'} left in semester
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
                   </View>
 
                   {/* 3 Clean Quick-Action Rows with Monochrome Circular Badges */}
-                  <View
-                    style={[
-                      styles.quickRowsCard,
-                      {
-                        backgroundColor: palette.card,
-                        borderColor: palette.border,
-                      },
-                    ]}
+                  <LiquidGlassCard
+                    borderRadius={24}
+                    useNativeBlur
+                    style={styles.quickRowsCard}
                   >
                     <Pressable
                       onPress={() => {
@@ -691,7 +721,7 @@ export function HomeScreen() {
                       </Text>
                       <ArrowRight size={15} color={palette.textMuted} strokeWidth={1.5} />
                     </Pressable>
-                  </View>
+                  </LiquidGlassCard>
 
                   {/* Today's Scheduled Classes Quick-Mark Strip */}
                   {todaysScheduledSubjects.length > 0 ? (
@@ -752,7 +782,7 @@ export function HomeScreen() {
                                   styles.todayMiniBtn,
                                   {
                                     backgroundColor: isP
-                                      ? activeAccent.primary
+                                      ? BRAND_COLORS.primary
                                       : palette.control,
                                   },
                                 ]}
@@ -878,7 +908,7 @@ export function HomeScreen() {
                     onPress={handleOpenAdd}
                     style={[
                       styles.emptyCtaBtn,
-                      { backgroundColor: activeAccent.primary },
+                      { backgroundColor: BRAND_COLORS.primary },
                     ]}
                   >
                     <Text
@@ -942,14 +972,11 @@ export function HomeScreen() {
               { paddingBottom: Math.max(insets.bottom, 16) + 8 },
             ]}
           >
-            <View
-              style={[
-                styles.floatingDock,
-                {
-                  backgroundColor: palette.dock,
-                  borderColor: palette.glassBorder,
-                },
-              ]}
+            <LiquidGlassCard
+              borderRadius={999}
+              useNativeBlur
+              focused
+              style={styles.floatingDock}
             >
               <Pressable
                 onPress={handleOpenAdd}
@@ -990,13 +1017,13 @@ export function HomeScreen() {
                 }}
                 style={[
                   styles.dockActionBtn,
-                  { backgroundColor: activeAccent.primary },
+                  { backgroundColor: BRAND_COLORS.primary },
                 ]}
                 accessibilityLabel="Open Quick Attendance"
               >
                 <CheckCheck size={18} color="#050608" strokeWidth={2.2} />
               </Pressable>
-            </View>
+            </LiquidGlassCard>
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -1051,10 +1078,10 @@ export function HomeScreen() {
                       styles.sortPill,
                       {
                         backgroundColor: active
-                          ? activeAccent.tintBg
+                          ? BRAND_COLORS.tintBg
                           : palette.control,
                         borderColor: active
-                          ? activeAccent.primary
+                          ? BRAND_COLORS.primary
                           : palette.border,
                       },
                     ]}
@@ -1062,7 +1089,7 @@ export function HomeScreen() {
                     <Text
                       style={{
                         color: active
-                          ? activeAccent.bright
+                          ? BRAND_COLORS.bright
                           : palette.textPrimary,
                         fontSize: 13,
                         fontFamily: FONT_FAMILIES.sansSemiBold,
@@ -1097,10 +1124,10 @@ export function HomeScreen() {
                       styles.sortPill,
                       {
                         backgroundColor: active
-                          ? activeAccent.tintBg
+                          ? BRAND_COLORS.tintBg
                           : palette.control,
                         borderColor: active
-                          ? activeAccent.primary
+                          ? BRAND_COLORS.primary
                           : palette.border,
                       },
                     ]}
@@ -1108,7 +1135,7 @@ export function HomeScreen() {
                     <Text
                       style={{
                         color: active
-                          ? activeAccent.bright
+                          ? BRAND_COLORS.bright
                           : palette.textPrimary,
                         fontSize: 13,
                         fontFamily: FONT_FAMILIES.sansSemiBold,
@@ -1283,7 +1310,7 @@ export function HomeScreen() {
                   { backgroundColor: palette.control, borderColor: palette.border },
                 ]}
               >
-                <Check size={18} color={activeAccent.bright} />
+                <Check size={18} color={BRAND_COLORS.bright} />
                 <Text
                   style={[
                     styles.sheetRowText,
@@ -1330,7 +1357,7 @@ export function HomeScreen() {
                   { backgroundColor: palette.control, borderColor: palette.border },
                 ]}
               >
-                <Target size={18} color={activeAccent.bright} />
+                <Target size={18} color={BRAND_COLORS.bright} />
                 <Text
                   style={[
                     styles.sheetRowText,
@@ -1804,6 +1831,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '500',
     marginLeft: 2,
+  },
+  heroPillsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
   },
   semesterPill: {
     marginTop: 8,

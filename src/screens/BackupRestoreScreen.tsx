@@ -57,7 +57,6 @@ export function BackupRestoreScreen() {
     settings,
     snapshots,
     palette,
-    activeAccent,
     refreshAll,
     restoreSnapshot,
     saveSettingsPatch,
@@ -225,7 +224,7 @@ export function BackupRestoreScreen() {
               style={[
                 styles.actionBtn,
                 {
-                  backgroundColor: activeAccent.primary,
+                  backgroundColor: BRAND_COLORS.primary,
                   opacity: busy === 'export' ? 0.7 : 1,
                 },
               ]}

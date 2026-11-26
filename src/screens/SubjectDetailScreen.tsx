@@ -71,6 +71,7 @@ import {
 } from '../theme/tokens';
 import { AmbientCanvas } from '../components/AmbientCanvas';
 import { CircularProgressRing } from '../components/CircularProgressRing';
+import { LiquidGlassCard } from '../components/LiquidGlassCard';
 import { TactilePressable } from '../components/TactilePressable';
 
 const WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
@@ -208,7 +209,6 @@ export function SubjectDetailScreen() {
     subjects,
     records,
     palette,
-    activeAccent,
     openRecordEditor,
     markDayStatus,
     saveSubject,
@@ -781,13 +781,12 @@ export function SubjectDetailScreen() {
           {/* Monthly Calendar Grid OR 12-Week GitHub Heatmap */}
           {viewMode === 'calendar' ? (
             <GestureDetector gesture={panGesture}>
-              <Animated.View
-                style={[
-                  styles.calendarCard,
-                  { backgroundColor: palette.card, borderColor: palette.border },
-                  animatedGridStyle,
-                ]}
-              >
+              <Animated.View style={animatedGridStyle}>
+                <LiquidGlassCard
+                  borderRadius={24}
+                  useNativeBlur
+                  style={styles.calendarCard}
+                >
                 <View style={styles.weekdayRow}>
                   {WEEKDAYS.map((day, idx) => (
                     <View key={day} style={styles.weekdayCell}>
@@ -834,8 +833,8 @@ export function SubjectDetailScreen() {
                             inCurrentMonth={cell.inCurrentMonth}
                             isToday={cell.isToday}
                             bgColor={bgColor}
-                            todayBorderColor={activeAccent.primary}
-                            todayTextColor={activeAccent.bright}
+                            todayBorderColor={BRAND_COLORS.primary}
+                            todayTextColor={BRAND_COLORS.bright}
                             defaultTextColor={palette.textPrimary}
                             statusColor={meta ? meta.color : null}
                             statusShort={meta ? meta.short : null}
@@ -848,14 +847,14 @@ export function SubjectDetailScreen() {
                     </View>
                   ))}
                 </View>
+                </LiquidGlassCard>
               </Animated.View>
             </GestureDetector>
           ) : (
-            <View
-              style={[
-                styles.heatmapCard,
-                { backgroundColor: palette.card, borderColor: palette.border },
-              ]}
+            <LiquidGlassCard
+              borderRadius={24}
+              useNativeBlur
+              style={styles.heatmapCard}
             >
               <View style={styles.heatmapTopRow}>
                 <View>
@@ -961,7 +960,7 @@ export function SubjectDetailScreen() {
                   <Text style={[styles.legendTxt, { color: palette.textSecondary }]}>Off / Unmarked</Text>
                 </View>
               </View>
-            </View>
+            </LiquidGlassCard>
           )}
 
           {/* Primary Analytics & Predictor Bento Card */}
@@ -1743,7 +1742,7 @@ export function SubjectDetailScreen() {
                   </Text>
                   <TactilePressable
                     onPress={() => setSimPresent((v) => Math.min(50, v + 1))}
-                    style={[styles.simStepBtn, { backgroundColor: activeAccent.primary }]}
+                    style={[styles.simStepBtn, { backgroundColor: BRAND_COLORS.primary }]}
                   >
                     <Plus size={18} color="#050608" />
                   </TactilePressable>

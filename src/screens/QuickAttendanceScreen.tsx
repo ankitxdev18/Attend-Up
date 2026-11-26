@@ -45,7 +45,7 @@ const DATE_PILL_GAP = 8;
 
 export function QuickAttendanceScreen() {
   const drawerNav = useNavigation<DrawerNavigationProp<RootDrawerParamList>>();
-  const { subjects, records, palette, activeAccent, markDayStatus, bulkMarkDate, showToast } =
+  const { subjects, records, palette, markDayStatus, bulkMarkDate, showToast } =
     useAttendance();
 
   const todayISO = formatDateISO(new Date());
@@ -180,17 +180,17 @@ export function QuickAttendanceScreen() {
             style={[
               styles.allPresentBtn,
               {
-                backgroundColor: activeAccent.tintBg,
-                borderColor: activeAccent.primary,
+                backgroundColor: BRAND_COLORS.tintBg,
+                borderColor: BRAND_COLORS.primary,
                 opacity: isFutureSelected ? 0.4 : 1,
               },
             ]}
           >
-            <CheckCheck size={15} color={activeAccent.bright} />
+            <CheckCheck size={15} color={BRAND_COLORS.bright} />
             <Text
               style={[
                 styles.allPresentText,
-                { color: activeAccent.bright, fontFamily: FONT_FAMILIES.sansBold },
+                { color: BRAND_COLORS.bright, fontFamily: FONT_FAMILIES.sansBold },
               ]}
             >
               All P
@@ -239,12 +239,12 @@ export function QuickAttendanceScreen() {
                     styles.datePill,
                     {
                       backgroundColor: active
-                        ? activeAccent.primary
+                        ? BRAND_COLORS.primary
                         : palette.card,
                       borderColor: active
-                        ? activeAccent.primary
+                        ? BRAND_COLORS.primary
                         : isToday
-                          ? activeAccent.bright
+                          ? BRAND_COLORS.bright
                           : palette.border,
                       opacity: item.isFuture ? 0.38 : 1,
                     },

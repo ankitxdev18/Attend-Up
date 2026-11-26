@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { BrandLogo } from '../components/BrandLogo';
+import { LiquidGlassCard } from '../components/LiquidGlassCard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   createDrawerNavigator,
@@ -28,7 +29,6 @@ import {
   HEADING_STYLE,
   SEMANTIC_COLORS,
   TABULAR_NUMS,
-  THEME_ACCENT_PRESETS,
 } from '../theme/tokens';
 import type { HomeStackParamList, RootDrawerParamList } from './types';
 import { HomeScreen } from '../screens/HomeScreen';
@@ -68,10 +68,8 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
   const insets = useSafeAreaInsets();
   const {
     palette,
-    activeAccent,
     isDark,
     toggleDarkMode,
-    updateThemeAccent,
     overallPercentage,
     subjects,
     records,
@@ -111,11 +109,11 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
       ]}
     >
       {/* Top Summary Card */}
-      <View
-        style={[
-          styles.drawerHeader,
-          { backgroundColor: palette.card, borderColor: palette.border },
-        ]}
+      <LiquidGlassCard
+        borderRadius={24}
+        useNativeBlur
+        focused
+        style={styles.drawerHeader}
       >
         <View style={styles.brandRow}>
           <View style={styles.brandCol}>
@@ -133,20 +131,20 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
               <View
                 style={[
                   styles.offlinePill,
-                  { backgroundColor: activeAccent.tintBg },
+                  { backgroundColor: BRAND_COLORS.tintBg },
                 ]}
               >
                 <View
                   style={[
                     styles.offlineDot,
-                    { backgroundColor: activeAccent.primary },
+                    { backgroundColor: BRAND_COLORS.primary },
                   ]}
                 />
                 <Text
                   style={[
                     styles.offlineText,
                     {
-                      color: activeAccent.bright,
+                      color: BRAND_COLORS.bright,
                       fontFamily: FONT_FAMILIES.sansSemiBold,
                     },
                   ]}
@@ -203,7 +201,10 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
           <View
             style={[
               styles.miniStatBox,
-              { backgroundColor: palette.control, borderColor: palette.border },
+              {
+                backgroundColor: isDark ? 'rgba(22, 25, 32, 0.72)' : palette.control,
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : palette.border,
+              },
             ]}
           >
             <Text
@@ -256,31 +257,7 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
             </Text>
           </View>
         </View>
-        {/* Quick Accent Swatch Row */}
-        <View style={styles.drawerSwatchRow}>
-          {THEME_ACCENT_PRESETS.map((preset) => {
-            const selected = preset.id === activeAccent.id;
-            return (
-              <Pressable
-                key={preset.id}
-                onPress={() => void updateThemeAccent(preset.id)}
-                accessibilityLabel={`Switch theme color to ${preset.label}`}
-                style={[
-                  styles.drawerSwatchOuter,
-                  { borderColor: selected ? preset.bright : 'transparent' },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.drawerSwatchDot,
-                    { backgroundColor: preset.primary },
-                  ]}
-                />
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
+      </LiquidGlassCard>
 
       {/* Primary Navigation Links */}
       <View style={styles.navList}>
@@ -300,24 +277,24 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
                 styles.navItem,
                 {
                   backgroundColor: isActive
-                    ? activeAccent.tintBg
+                    ? BRAND_COLORS.tintBg
                     : 'transparent',
                   borderColor: isActive
-                    ? activeAccent.borderTint
+                    ? BRAND_COLORS.tintBorder
                     : 'transparent',
                 },
               ]}
             >
               <Icon
                 size={18}
-                color={isActive ? activeAccent.bright : palette.textSecondary}
+                color={isActive ? BRAND_COLORS.bright : palette.textSecondary}
               />
               <Text
                 style={[
                   styles.navLabel,
                   {
                     color: isActive
-                      ? activeAccent.bright
+                      ? BRAND_COLORS.bright
                       : palette.textPrimary,
                     fontFamily: isActive
                       ? FONT_FAMILIES.sansBold
@@ -613,24 +590,5 @@ const styles = StyleSheet.create({
   },
   quickJumpPct: {
     fontSize: 12,
-  },
-  drawerSwatchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 2,
-  },
-  drawerSwatchOuter: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  drawerSwatchDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
   },
 });

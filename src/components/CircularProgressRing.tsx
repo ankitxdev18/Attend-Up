@@ -7,8 +7,8 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { useAttendance } from '../context/AttendanceContext';
 import {
+  BRAND_COLORS,
   FONT_FAMILIES,
   SEMANTIC_COLORS,
   TABULAR_NUMS,
@@ -37,7 +37,6 @@ export const CircularProgressRing = React.memo(function CircularProgressRing({
   textColor,
   accentColor,
 }: CircularProgressRingProps) {
-  const { activeAccent } = useAttendance();
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const clamped = Math.min(100, Math.max(0, percentage));
@@ -58,7 +57,7 @@ export const CircularProgressRing = React.memo(function CircularProgressRing({
   const activeColor = !hasData
     ? trackColor
     : percentage >= targetPercentage
-      ? (accentColor ?? activeAccent.primary)
+      ? (accentColor ?? BRAND_COLORS.primary)
       : SEMANTIC_COLORS.absent;
 
   const displayLabel = hasData ? `${Math.round(percentage)}%` : '0%';

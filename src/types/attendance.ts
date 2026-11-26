@@ -11,14 +11,6 @@ export type ShiftType = 'Morning' | 'Regular' | 'Evening' | 'Lab' | '';
 
 export type WidgetStyle = 'heatmap' | 'calendar';
 
-export type ThemeAccentId =
-  | 'emerald'
-  | 'sapphire'
-  | 'violet'
-  | 'crimson'
-  | 'amber'
-  | 'cyan';
-
 export interface Subject {
   id: string;
   name: string;
@@ -35,6 +27,7 @@ export interface AttendanceRecord {
   date: string; // YYYY-MM-DD (local timezone)
   status: AttendanceStatus;
   overtimeHours: number;
+  classesCount?: number; // 1..4 lectures/labs logged on this day (default 1)
   shift: ShiftType;
   note: string;
   updatedAt: number;
@@ -53,7 +46,6 @@ export interface AppSettings {
   widgetMonth: string; // "YYYY-MM" or ''
   pinHash: string;
   lastBackupAt: number;
-  themeAccent: ThemeAccentId;
   semesterEndDate: string; // "YYYY-MM-DD" or ''
   lastUpdateCheckAt: number;
   dismissedVersion: string;

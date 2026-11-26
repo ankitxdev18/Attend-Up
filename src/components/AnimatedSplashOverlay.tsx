@@ -10,7 +10,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
-import { useAttendance } from '../context/AttendanceContext';
+import { BRAND_COLORS } from '../theme/tokens';
 import { BrandLogo } from './BrandLogo';
 
 /**
@@ -18,7 +18,6 @@ import { BrandLogo } from './BrandLogo';
  * the native splash screen and unmounts completely after 650ms.
  */
 export function AnimatedSplashOverlay() {
-  const { activeAccent } = useAttendance();
   const [visible, setVisible] = useState(true);
 
   const logoScale = useSharedValue(0.88);
@@ -65,8 +64,8 @@ export function AnimatedSplashOverlay() {
         <Svg width={240} height={240} viewBox="0 0 240 240">
           <Defs>
             <RadialGradient id="launchGlow" cx="50%" cy="50%" r="50%">
-              <Stop offset="0%" stopColor={activeAccent.primary} stopOpacity="0.28" />
-              <Stop offset="60%" stopColor={activeAccent.glow} stopOpacity="0.08" />
+              <Stop offset="0%" stopColor={BRAND_COLORS.primary} stopOpacity="0.28" />
+              <Stop offset="60%" stopColor={BRAND_COLORS.deep} stopOpacity="0.08" />
               <Stop offset="100%" stopColor="#050608" stopOpacity="0" />
             </RadialGradient>
           </Defs>
@@ -75,7 +74,7 @@ export function AnimatedSplashOverlay() {
       </View>
 
       <Animated.View style={logoStyle}>
-        <BrandLogo variant="ring" size={88} accentColor={activeAccent.primary} />
+        <BrandLogo variant="ring" size={88} accentColor={BRAND_COLORS.primary} />
       </Animated.View>
     </Animated.View>
   );

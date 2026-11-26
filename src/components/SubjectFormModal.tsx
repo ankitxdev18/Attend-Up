@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { X } from 'lucide-react-native';
+import { LiquidGlassCard } from './LiquidGlassCard';
 import type { Subject } from '../types/attendance';
 import { useAttendance } from '../context/AttendanceContext';
 import {
@@ -45,7 +46,7 @@ function SubjectFormBody({
   editingSubject: Subject | null;
   onClose: () => void;
 }) {
-  const { palette, activeAccent, saveSubject, showToast } = useAttendance();
+  const { palette, saveSubject, showToast } = useAttendance();
   const [name, setName] = useState(editingSubject?.name ?? '');
   const [target, setTarget] = useState(
     String(editingSubject?.targetPercentage ?? 75)
@@ -106,12 +107,7 @@ function SubjectFormBody({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.backdrop}
     >
-      <View
-        style={[
-          styles.card,
-          { backgroundColor: palette.sheet, borderColor: palette.border },
-        ]}
-      >
+      <LiquidGlassCard borderRadius={28} useNativeBlur focused style={styles.card}>
         <View style={styles.header}>
           <Text
             style={[
@@ -275,7 +271,7 @@ function SubjectFormBody({
           <Switch
             value={autoMarkSundays}
             onValueChange={setAutoMarkSundays}
-            trackColor={{ false: palette.control, true: activeAccent.primary }}
+            trackColor={{ false: palette.control, true: BRAND_COLORS.primary }}
             thumbColor="#FFFFFF"
           />
         </View>
@@ -302,7 +298,7 @@ function SubjectFormBody({
           <Pressable
             onPress={handleSubmit}
             disabled={submitting}
-            style={[styles.saveBtn, { backgroundColor: activeAccent.primary }]}
+            style={[styles.saveBtn, { backgroundColor: BRAND_COLORS.primary }]}
           >
             <Text
               style={[
@@ -315,7 +311,7 @@ function SubjectFormBody({
             </Text>
           </Pressable>
         </View>
-      </View>
+      </LiquidGlassCard>
     </KeyboardAvoidingView>
   );
 }

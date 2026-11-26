@@ -118,15 +118,16 @@ export function computeAttendanceStats(
 
   for (const r of records) {
     overtimeHours += r.overtimeHours || 0;
+    const weight = Math.max(1, Math.min(4, Math.round(r.classesCount ?? 1)));
     switch (r.status) {
       case 'present':
-        present += 1;
+        present += weight;
         break;
       case 'absent':
-        absent += 1;
+        absent += weight;
         break;
       case 'half_day':
-        halfDays += 1;
+        halfDays += weight;
         break;
       case 'holiday':
         holiday += 1;
@@ -158,13 +159,14 @@ export function computeAttendanceStats(
   if (totalCounted > 0) {
     if (percentage < target) {
       if (targetRatio >= 1) {
-        predictorLine = 'Attend every class for 100%';
+        predictorLine = 'Warning · Attend every class for 100%';
       } else {
         neededForTarget = Math.max(
           1,
           Math.ceil((targetRatio * totalCounted - attendedUnits) / (1 - targetRatio))
         );
-        predictorLine = `Attend ${neededForTarget} more for ${target}%`;
+        const clsWord = neededForTarget === 1 ? 'class' : 'classes';
+        predictorLine = `Warning · Attend next ${neededForTarget} ${clsWord} straight for ${target}%`;
       }
     } else {
       safeToBunk = Math.max(
@@ -172,10 +174,10 @@ export function computeAttendanceStats(
         Math.floor((attendedUnits - targetRatio * totalCounted) / targetRatio)
       );
       if (safeToBunk > 0) {
-        const bunkWord = safeToBunk === 1 ? 'bunk' : 'bunks';
-        predictorLine = `Safe · ${safeToBunk} ${bunkWord} left`;
+        const clsWord = safeToBunk === 1 ? 'class' : 'classes';
+        predictorLine = `Safe · Can skip next ${safeToBunk} ${clsWord}`;
       } else {
-        predictorLine = `On track · ${target}% target`;
+        predictorLine = `Safe · On track for ${target}%`;
       }
     }
   }

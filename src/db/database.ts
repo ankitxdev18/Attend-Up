@@ -44,7 +44,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   widgetMonth: '',
   pinHash: '',
   lastBackupAt: 0,
-  themeAccent: 'emerald',
   semesterEndDate: '',
   lastUpdateCheckAt: 0,
   dismissedVersion: '',
@@ -99,6 +98,7 @@ export async function initDatabase(): Promise<void> {
         date TEXT NOT NULL,
         status TEXT,
         overtimeHours REAL NOT NULL DEFAULT 0,
+        classesCount INTEGER NOT NULL DEFAULT 1,
         shift TEXT NOT NULL DEFAULT '',
         note TEXT NOT NULL DEFAULT '',
         updatedAt INTEGER NOT NULL,
@@ -120,7 +120,6 @@ export async function initDatabase(): Promise<void> {
         widgetMonth TEXT NOT NULL DEFAULT '',
         pinHash TEXT NOT NULL DEFAULT '',
         lastBackupAt INTEGER NOT NULL DEFAULT 0,
-        themeAccent TEXT NOT NULL DEFAULT 'emerald',
         semesterEndDate TEXT NOT NULL DEFAULT '',
         lastUpdateCheckAt INTEGER NOT NULL DEFAULT 0,
         dismissedVersion TEXT NOT NULL DEFAULT ''
@@ -156,11 +155,6 @@ export async function initDatabase(): Promise<void> {
         `ALTER TABLE settings ADD COLUMN lastBackupAt INTEGER NOT NULL DEFAULT 0;`
       );
     }
-    if (!colNames.has('themeAccent')) {
-      await db.execAsync(
-        `ALTER TABLE settings ADD COLUMN themeAccent TEXT NOT NULL DEFAULT 'emerald';`
-      );
-    }
     if (!colNames.has('semesterEndDate')) {
       await db.execAsync(
         `ALTER TABLE settings ADD COLUMN semesterEndDate TEXT NOT NULL DEFAULT '';`
@@ -185,6 +179,14 @@ export async function initDatabase(): Promise<void> {
       );
     }
 
+    const recCols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(records)');
+    const recColNames = new Set(recCols.map((c) => c.name));
+    if (!recColNames.has('classesCount')) {
+      await db.execAsync(
+        `ALTER TABLE records ADD COLUMN classesCount INTEGER NOT NULL DEFAULT 1;`
+      );
+    }
+
     const countRow = await db.getFirstAsync<{ cnt: number }>(
       'SELECT COUNT(*) as cnt FROM subjects'
     );
@@ -204,8 +206,8 @@ export async function initDatabase(): Promise<void> {
       await db.runAsync(
         `INSERT INTO settings (
           id, lockAttendance, preferNote, darkMode, reminderEnabled, reminderTime,
-          reminderSubjectIds, widgetSubjectId, widgetStyle, widgetMonth, pinHash, lastBackupAt, themeAccent, semesterEndDate, lastUpdateCheckAt, dismissedVersion
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          reminderSubjectIds, widgetSubjectId, widgetStyle, widgetMonth, pinHash, lastBackupAt, semesterEndDate, lastUpdateCheckAt, dismissedVersion
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           'app',
           DEFAULT_SETTINGS.lockAttendance ? 1 : 0,
@@ -219,7 +221,6 @@ export async function initDatabase(): Promise<void> {
           DEFAULT_SETTINGS.widgetMonth,
           DEFAULT_SETTINGS.pinHash,
           DEFAULT_SETTINGS.lastBackupAt,
-          DEFAULT_SETTINGS.themeAccent,
           DEFAULT_SETTINGS.semesterEndDate,
           DEFAULT_SETTINGS.lastUpdateCheckAt,
           DEFAULT_SETTINGS.dismissedVersion,
@@ -277,6 +278,7 @@ export async function getAllRecords(): Promise<AttendanceRecord[]> {
     date: string;
     status: string | null;
     overtimeHours: number;
+    classesCount?: number;
     shift: string;
     note: string;
     updatedAt: number;
@@ -287,6 +289,7 @@ export async function getAllRecords(): Promise<AttendanceRecord[]> {
     date: r.date,
     status: (r.status as AttendanceStatus) ?? null,
     overtimeHours: r.overtimeHours ?? 0,
+    classesCount: Math.max(1, Math.min(4, Math.round(r.classesCount ?? 1))),
     shift: (r.shift as ShiftType) ?? '',
     note: r.note ?? '',
     updatedAt: r.updatedAt,
@@ -309,17 +312,12 @@ export async function getAppSettings(): Promise<AppSettings> {
     widgetMonth: string;
     pinHash: string;
     lastBackupAt: number;
-    themeAccent: string;
     semesterEndDate: string;
     lastUpdateCheckAt: number;
     dismissedVersion: string;
   }>('SELECT * FROM settings WHERE id = ?', ['app']);
 
   if (!row) return DEFAULT_SETTINGS;
-  const validAccents = ['emerald', 'sapphire', 'violet', 'crimson', 'amber', 'cyan'];
-  const themeAccent = validAccents.includes(row.themeAccent)
-    ? (row.themeAccent as AppSettings['themeAccent'])
-    : 'emerald';
   return {
     id: 'app',
     lockAttendance: Boolean(row.lockAttendance),
@@ -333,7 +331,6 @@ export async function getAppSettings(): Promise<AppSettings> {
     widgetMonth: row.widgetMonth || '',
     pinHash: row.pinHash || '',
     lastBackupAt: Number(row.lastBackupAt) || 0,
-    themeAccent,
     semesterEndDate: row.semesterEndDate || '',
     lastUpdateCheckAt: Number(row.lastUpdateCheckAt) || 0,
     dismissedVersion: row.dismissedVersion || '',
@@ -356,7 +353,7 @@ export async function updateAppSettings(patch: Partial<AppSettings>): Promise<Ap
     `UPDATE settings
      SET lockAttendance = ?, preferNote = ?, darkMode = ?, reminderEnabled = ?,
          reminderTime = ?, reminderSubjectIds = ?, widgetSubjectId = ?,
-         widgetStyle = ?, widgetMonth = ?, pinHash = ?, lastBackupAt = ?, themeAccent = ?,
+         widgetStyle = ?, widgetMonth = ?, pinHash = ?, lastBackupAt = ?,
          semesterEndDate = ?, lastUpdateCheckAt = ?, dismissedVersion = ?
      WHERE id = 'app'`,
     [
@@ -371,7 +368,6 @@ export async function updateAppSettings(patch: Partial<AppSettings>): Promise<Ap
       next.widgetMonth ?? '',
       next.pinHash,
       Number(next.lastBackupAt) || 0,
-      next.themeAccent ?? 'emerald',
       next.semesterEndDate ?? '',
       Number(next.lastUpdateCheckAt) || 0,
       next.dismissedVersion ?? '',
@@ -506,14 +502,16 @@ export async function setSubjectDayStatus(
   const db = getDb();
   const existing = await db.getFirstAsync<{
     overtimeHours: number;
+    classesCount: number;
     shift: string;
     note: string;
-  }>('SELECT overtimeHours, shift, note FROM records WHERE subjectId = ? AND date = ?', [
-    subjectId,
-    validDate,
-  ]);
+  }>(
+    'SELECT overtimeHours, classesCount, shift, note FROM records WHERE subjectId = ? AND date = ?',
+    [subjectId, validDate]
+  );
 
   const overtimeHours = existing?.overtimeHours ?? 0;
+  const classesCount = Math.max(1, Math.min(4, Math.round(existing?.classesCount ?? 1)));
   const shift = existing?.shift ?? '';
   const note = existing?.note ?? '';
 
@@ -526,15 +524,16 @@ export async function setSubjectDayStatus(
   }
 
   await db.runAsync(
-    `INSERT INTO records (subjectId, date, status, overtimeHours, shift, note, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO records (subjectId, date, status, overtimeHours, classesCount, shift, note, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(subjectId, date) DO UPDATE SET
        status = excluded.status,
        overtimeHours = excluded.overtimeHours,
+       classesCount = excluded.classesCount,
        shift = excluded.shift,
        note = excluded.note,
        updatedAt = excluded.updatedAt`,
-    [subjectId, validDate, validStatus, overtimeHours, shift, note, Date.now()]
+    [subjectId, validDate, validStatus, overtimeHours, classesCount, shift, note, Date.now()]
   );
 }
 
@@ -545,6 +544,7 @@ export async function upsertAttendanceRecord(
   const validDate = validateDateISO(record.date);
   const validStatus = validateStatus(record.status);
   const validOt = validateOvertimeHours(record.overtimeHours || 0);
+  const validClasses = Math.max(1, Math.min(4, Math.round(record.classesCount ?? 1)));
   const validShift = validateShift(record.shift || '');
   const validNote = validateNote(record.note || '');
 
@@ -563,11 +563,12 @@ export async function upsertAttendanceRecord(
   }
 
   await db.runAsync(
-    `INSERT INTO records (subjectId, date, status, overtimeHours, shift, note, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO records (subjectId, date, status, overtimeHours, classesCount, shift, note, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(subjectId, date) DO UPDATE SET
        status = excluded.status,
        overtimeHours = excluded.overtimeHours,
+       classesCount = excluded.classesCount,
        shift = excluded.shift,
        note = excluded.note,
        updatedAt = excluded.updatedAt`,
@@ -576,6 +577,7 @@ export async function upsertAttendanceRecord(
       validDate,
       validStatus,
       validOt,
+      validClasses,
       validShift,
       validNote,
       Date.now(),
@@ -660,13 +662,14 @@ async function applyValidatedStateInTransaction(payload: {
 
     for (const r of payload.records) {
       await db.runAsync(
-        `INSERT INTO records (subjectId, date, status, overtimeHours, shift, note, updatedAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO records (subjectId, date, status, overtimeHours, classesCount, shift, note, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           r.subjectId,
           r.date,
           r.status,
           r.overtimeHours,
+          Math.max(1, Math.min(4, Math.round(r.classesCount ?? 1))),
           r.shift,
           r.note,
           r.updatedAt,
@@ -758,14 +761,16 @@ async function upsertDayStatusesInTransaction(
       for (const date of dates) {
         const existing = await db.getFirstAsync<{
           overtimeHours: number;
+          classesCount: number;
           shift: string;
           note: string;
-        }>('SELECT overtimeHours, shift, note FROM records WHERE subjectId = ? AND date = ?', [
-          subjectId,
-          date,
-        ]);
+        }>(
+          'SELECT overtimeHours, classesCount, shift, note FROM records WHERE subjectId = ? AND date = ?',
+          [subjectId, date]
+        );
 
         const overtimeHours = existing?.overtimeHours ?? 0;
+        const classesCount = Math.max(1, Math.min(4, Math.round(existing?.classesCount ?? 1)));
         const shift = existing?.shift ?? '';
         const note = existing?.note ?? '';
 
@@ -778,15 +783,16 @@ async function upsertDayStatusesInTransaction(
         }
 
         await db.runAsync(
-          `INSERT INTO records (subjectId, date, status, overtimeHours, shift, note, updatedAt)
-           VALUES (?, ?, ?, ?, ?, ?, ?)
+          `INSERT INTO records (subjectId, date, status, overtimeHours, classesCount, shift, note, updatedAt)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(subjectId, date) DO UPDATE SET
              status = excluded.status,
              overtimeHours = excluded.overtimeHours,
+             classesCount = excluded.classesCount,
              shift = excluded.shift,
              note = excluded.note,
              updatedAt = excluded.updatedAt`,
-          [subjectId, date, status, overtimeHours, shift, note, now]
+          [subjectId, date, status, overtimeHours, classesCount, shift, note, now]
         );
       }
     }

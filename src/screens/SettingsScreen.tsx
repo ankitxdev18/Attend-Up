@@ -22,14 +22,12 @@ import DateTimePicker, {
 import {
   Bell,
   Calendar,
-  Check,
   Clock,
   Copy,
   Info,
   LayoutGrid,
   Lock,
   Moon,
-  Palette,
   RefreshCw,
   Send,
   Share2,
@@ -69,7 +67,6 @@ import {
   HEADING_STYLE,
   SEMANTIC_COLORS,
   TABULAR_NUMS,
-  THEME_ACCENT_PRESETS,
   UI_METRICS,
 } from '../theme/tokens';
 import { AmbientCanvas, MinimalMenuIcon } from '../components/AmbientCanvas';
@@ -94,8 +91,6 @@ export function SettingsScreen() {
     records,
     settings,
     palette,
-    activeAccent,
-    updateThemeAccent,
     saveSettingsPatch,
     showToast,
   } = useAttendance();
@@ -306,7 +301,7 @@ export function SettingsScreen() {
             <Switch
               value={settings.darkMode}
               onValueChange={(val) => void saveSettingsPatch({ darkMode: val })}
-              trackColor={{ false: palette.control, true: activeAccent.primary }}
+              trackColor={{ false: palette.control, true: BRAND_COLORS.primary }}
               thumbColor="#FFFFFF"
             />
           </View>
@@ -317,7 +312,7 @@ export function SettingsScreen() {
           >
             <View style={styles.rowLeft}>
               <View style={styles.settingIconBadge}>
-                <Calendar size={16} color={activeAccent.bright} />
+                <Calendar size={16} color={BRAND_COLORS.bright} />
               </View>
               <View style={styles.rowText}>
                 <Text
@@ -373,67 +368,6 @@ export function SettingsScreen() {
               onDismiss={() => setShowSemesterPicker(false)}
             />
           ) : null}
-        </View>
-
-        {/* App & Background Color Picker */}
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: palette.card, borderColor: palette.border },
-          ]}
-        >
-          <View style={styles.colorCardHeader}>
-            <View style={styles.settingIconBadge}>
-              <Palette size={16} color={activeAccent.bright} />
-            </View>
-            <View style={styles.rowText}>
-              <Text
-                style={[
-                  styles.rowTitle,
-                  { color: palette.textPrimary, fontFamily: FONT_FAMILIES.sansSemiBold },
-                ]}
-              >
-                App & Background Color
-              </Text>
-              <Text
-                style={[
-                  styles.rowDesc,
-                  { color: palette.textMuted, fontFamily: FONT_FAMILIES.sansRegular },
-                ]}
-              >
-                Unified accent for buttons, rings, and 4-edge ambient glow ({activeAccent.label})
-              </Text>
-            </View>
-          </View>
-          <View style={styles.swatchRow}>
-            {THEME_ACCENT_PRESETS.map((preset) => {
-              const selected = preset.id === activeAccent.id;
-              return (
-                <Pressable
-                  key={preset.id}
-                  onPress={() => void updateThemeAccent(preset.id)}
-                  accessibilityLabel={`Select ${preset.label} theme color`}
-                  style={[
-                    styles.swatchOuter,
-                    {
-                      borderColor: selected ? preset.bright : 'transparent',
-                    },
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.swatchCircle,
-                      { backgroundColor: preset.primary },
-                    ]}
-                  >
-                    {selected ? (
-                      <Check size={15} color="#050608" strokeWidth={2.8} />
-                    ) : null}
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
         </View>
 
         {/* Security: App PIN Lock */}
@@ -673,21 +607,21 @@ export function SettingsScreen() {
               style={[
                 styles.checkUpdateBtn,
                 {
-                  backgroundColor: activeAccent.tintBg,
-                  borderColor: activeAccent.borderTint,
+                  backgroundColor: BRAND_COLORS.tintBg,
+                  borderColor: BRAND_COLORS.tintBorder,
                   opacity: checkingUpdate ? 0.7 : 1,
                 },
               ]}
             >
               {checkingUpdate ? (
-                <ActivityIndicator size="small" color={activeAccent.bright} />
+                <ActivityIndicator size="small" color={BRAND_COLORS.bright} />
               ) : (
-                <RefreshCw size={14} color={activeAccent.bright} />
+                <RefreshCw size={14} color={BRAND_COLORS.bright} />
               )}
               <Text
                 style={[
                   styles.checkUpdateText,
-                  { color: activeAccent.bright, fontFamily: FONT_FAMILIES.sansBold },
+                  { color: BRAND_COLORS.bright, fontFamily: FONT_FAMILIES.sansBold },
                 ]}
               >
                 {checkingUpdate ? 'Checking...' : 'Check for Updates'}
@@ -725,7 +659,7 @@ export function SettingsScreen() {
               }}
               style={[
                 styles.shareActionBtn,
-                { backgroundColor: activeAccent.primary },
+                { backgroundColor: BRAND_COLORS.primary },
               ]}
             >
               <Share2 size={15} color="#050608" />
@@ -1576,33 +1510,6 @@ const styles = StyleSheet.create({
   },
   fallbackCalPillSpacer: {
     height: 12,
-  },
-  colorCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 14,
-  },
-  swatchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  swatchOuter: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  swatchCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   clearPill: {
     paddingHorizontal: 10,
