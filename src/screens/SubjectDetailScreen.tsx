@@ -119,7 +119,7 @@ const CalendarDayCell = React.memo(function CalendarDayCell({
   onLongPressDay,
 }: CalendarDayCellProps) {
   const outerBorderColor = isSelected ? 'transparent' : tileBorder;
-  const outerBorderWidth = 1;
+  const outerBorderWidth = isSelected ? 0 : 1;
   const outerBg = isSelected ? 'transparent' : tileBg;
 
   return (
@@ -135,50 +135,55 @@ const CalendarDayCell = React.memo(function CalendarDayCell({
             backgroundColor: outerBg,
             borderColor: outerBorderColor,
             borderWidth: outerBorderWidth,
-            opacity: !inCurrentMonth ? 0.3 : pressed ? 0.75 : 1,
+            opacity: pressed ? 0.75 : 1,
           },
         ]}
       >
         {hasNote ? <View style={styles.noteCornerDot} /> : null}
 
-        <Text
-          style={[
-            styles.dayNum,
-            TABULAR_NUMS,
-            {
-              color: isDark ? '#F8FAFC' : defaultTextColor,
-              fontFamily: FONT_FAMILIES.monoMedium,
-            },
-          ]}
-        >
-          {dayNumber}
-        </Text>
-
-        {statusShort && statusColor ? (
+        <View style={styles.dayNumSlot}>
           <Text
             style={[
-              styles.microStatus,
+              styles.dayNum,
               TABULAR_NUMS,
               {
-                color: statusColor,
-                fontFamily: FONT_FAMILIES.monoBold,
+                color: !inCurrentMonth
+                  ? 'rgba(148, 163, 184, 0.32)'
+                  : isDark
+                    ? '#F8FAFC'
+                    : defaultTextColor,
+                fontFamily: FONT_FAMILIES.monoMedium,
               },
             ]}
           >
-            {statusShort}
+            {dayNumber}
           </Text>
-        ) : null}
+        </View>
 
-        {isToday || hasOt ? (
+        <View style={styles.dayStatusSlot}>
+          {statusShort && statusColor ? (
+            <Text
+              style={[
+                styles.microStatus,
+                TABULAR_NUMS,
+                {
+                  color: !inCurrentMonth
+                    ? 'rgba(148, 163, 184, 0.32)'
+                    : statusColor,
+                  fontFamily: FONT_FAMILIES.monoBold,
+                },
+              ]}
+            >
+              {statusShort}
+            </Text>
+          ) : null}
+        </View>
+
+        {hasOt ? (
           <View style={styles.dotIndicatorRow}>
-            {isToday ? (
-              <View style={[styles.microDot, { backgroundColor: '#34D399' }]} />
-            ) : null}
-            {hasOt ? (
-              <View
-                style={[styles.microDot, { backgroundColor: SEMANTIC_COLORS.halfDay }]}
-              />
-            ) : null}
+            <View
+              style={[styles.microDot, { backgroundColor: SEMANTIC_COLORS.halfDay }]}
+            />
           </View>
         ) : null}
       </Pressable>
@@ -261,7 +266,7 @@ export function SubjectDetailScreen() {
   const translateX = useSharedValue(0);
   const todayISO = formatDateISO(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(todayISO);
-  const [gridWidth, setGridWidth] = useState(0);
+  const [gridSize, setGridSize] = useState({ width: 0, height: 0 });
   const [inlineNoteDraft, setInlineNoteDraft] = useState<string | null>(null);
   const [savingInlineNote, setSavingInlineNote] = useState(false);
   const subjectId = subject?.id;
@@ -299,11 +304,15 @@ export function SubjectDetailScreen() {
     return map;
   }, [subjectRecords]);
 
+  const isSelectedFuture = Boolean(selectedDate && selectedDate > todayISO);
+
   const inlineNote =
     inlineNoteDraft ?? (selectedDate ? recordMap.get(selectedDate)?.note ?? '' : '');
 
   const handleSaveInlineNote = useCallback(async () => {
-    if (!subjectId || !selectedDate || savingInlineNote) return;
+    if (!subjectId || !selectedDate || selectedDate > todayISO || savingInlineNote) {
+      return;
+    }
     if (inlineNote.length > 300) {
       showToast('Note cannot exceed 300 characters.', 'error');
       return;
@@ -319,7 +328,15 @@ export function SubjectDetailScreen() {
     } finally {
       setSavingInlineNote(false);
     }
-  }, [subjectId, selectedDate, savingInlineNote, inlineNote, saveDateNote, showToast]);
+  }, [
+    subjectId,
+    selectedDate,
+    todayISO,
+    savingInlineNote,
+    inlineNote,
+    saveDateNote,
+    showToast,
+  ]);
 
   const todayRecord = recordMap.get(todayISO);
   const todayEffective = subject
@@ -335,7 +352,12 @@ export function SubjectDetailScreen() {
     return weeks;
   }, [monthKey]);
 
-  const cellWidth = gridWidth > 0 ? gridWidth / 7 : 0;
+  const numRows = calendarWeeks.length;
+  const cellWidth = gridSize.width > 0 ? gridSize.width / 7 : 0;
+  const rowHeight =
+    gridSize.height > 0 && numRows > 0
+      ? gridSize.height / numRows
+      : CALENDAR_ROW_HEIGHT;
 
   useEffect(() => {
     let coords: { row: number; col: number } | null = null;
@@ -351,9 +373,9 @@ export function SubjectDetailScreen() {
       }
     }
 
-    if (cellWidth > 0 && coords) {
+    if (cellWidth > 0 && rowHeight > 0 && coords) {
       const targetX = coords.col * cellWidth + 3;
-      const targetY = coords.row * CALENDAR_ROW_HEIGHT + 3;
+      const targetY = coords.row * rowHeight + 3;
       if (selVisible.value === 0) {
         selX.value = targetX;
         selY.value = targetY;
@@ -365,7 +387,7 @@ export function SubjectDetailScreen() {
     } else {
       selVisible.value = 0;
     }
-  }, [cellWidth, calendarWeeks, selectedDate, selX, selY, selVisible]);
+  }, [cellWidth, rowHeight, calendarWeeks, selectedDate, selX, selY, selVisible]);
 
   const glidingTileStyle = useAnimatedStyle(() => ({
     opacity: selVisible.value,
@@ -959,27 +981,37 @@ export function SubjectDetailScreen() {
                 <View
                   style={styles.weeksWrap}
                   onLayout={(e) => {
-                    const w = e.nativeEvent.layout.width;
-                    if (w > 0 && Math.abs(w - gridWidth) > 0.5) {
-                      setGridWidth(w);
+                    const { width, height } = e.nativeEvent.layout;
+                    if (
+                      width > 0 &&
+                      height > 0 &&
+                      (Math.abs(width - gridSize.width) > 0.5 ||
+                        Math.abs(height - gridSize.height) > 0.5)
+                    ) {
+                      setGridSize({ width, height });
                     }
                   }}
                 >
-                  {cellWidth > 0 ? (
+                  {cellWidth > 0 && rowHeight > 0 ? (
                     <Animated.View
                       pointerEvents="none"
                       style={[
                         styles.glidingSelectionTile,
+                        isSelectedFuture ? styles.glidingSelectionTileFuture : null,
                         {
                           width: cellWidth - 6,
-                          height: CALENDAR_ROW_HEIGHT - 6,
+                          height: rowHeight - 6,
                         },
                         glidingTileStyle,
                       ]}
                     >
                       <LinearGradient
                         pointerEvents="none"
-                        colors={['rgba(255, 255, 255, 0.16)', 'rgba(16, 185, 129, 0.04)']}
+                        colors={
+                          isSelectedFuture
+                            ? ['rgba(255, 255, 255, 0.08)', 'rgba(148, 163, 184, 0.02)']
+                            : ['rgba(255, 255, 255, 0.16)', 'rgba(16, 185, 129, 0.03)']
+                        }
                         start={{ x: 0.5, y: 0 }}
                         end={{ x: 0.5, y: 1 }}
                         style={StyleSheet.absoluteFill}
@@ -987,7 +1019,7 @@ export function SubjectDetailScreen() {
                     </Animated.View>
                   ) : null}
                   {calendarWeeks.map((week, wIdx) => (
-                    <View key={`wk-${wIdx}`} style={[styles.weekRow, { zIndex: 1 }]}>
+                    <View key={`wk-${wIdx}`} style={[styles.weekRow, { zIndex: 2 }]}>
                       {week.map((cell) => {
                         const rec = recordMap.get(cell.dateISO);
                         const { status } = getEffectiveStatus(
@@ -1006,30 +1038,30 @@ export function SubjectDetailScreen() {
                             : meta.short
                           : null;
 
-                        let tileBg = isDark ? '#12161B' : palette.control;
+                        let tileBg = 'transparent';
                         let tileBorder = isDark
-                          ? 'rgba(255, 255, 255, 0.08)'
+                          ? 'rgba(255, 255, 255, 0.07)'
                           : palette.border;
                         let statusColor: string | null = null;
 
                         if (status === 'present') {
-                          tileBg = 'rgba(16, 185, 129, 0.14)';
-                          tileBorder = 'rgba(16, 185, 129, 0.30)';
+                          tileBg = 'rgba(16, 185, 129, 0.12)';
+                          tileBorder = 'rgba(16, 185, 129, 0.28)';
                           statusColor = '#34D399';
                         } else if (status === 'absent') {
-                          tileBg = 'rgba(248, 113, 113, 0.14)';
-                          tileBorder = 'rgba(248, 113, 113, 0.30)';
+                          tileBg = 'rgba(248, 113, 113, 0.12)';
+                          tileBorder = 'rgba(248, 113, 113, 0.28)';
                           statusColor = '#F87171';
                         } else if (status === 'half_day') {
-                          tileBg = 'rgba(251, 191, 36, 0.14)';
-                          tileBorder = 'rgba(251, 191, 36, 0.30)';
+                          tileBg = 'rgba(251, 191, 36, 0.12)';
+                          tileBorder = 'rgba(251, 191, 36, 0.28)';
                           statusColor = '#FBBF24';
                         } else if (status) {
-                          tileBg = 'rgba(148, 163, 184, 0.10)';
-                          tileBorder = 'rgba(148, 163, 184, 0.22)';
+                          tileBg = 'rgba(148, 163, 184, 0.08)';
+                          tileBorder = 'rgba(148, 163, 184, 0.20)';
                           statusColor = '#94A3B8';
                         } else if (!cell.inCurrentMonth) {
-                          tileBg = isDark ? '#0D1014' : 'transparent';
+                          tileBg = 'transparent';
                           tileBorder = isDark ? 'rgba(255, 255, 255, 0.04)' : 'transparent';
                         }
 
@@ -1176,110 +1208,53 @@ export function SubjectDetailScreen() {
           {/* Inline Date Action Bar (1-tap calendar marking) */}
           {viewMode === 'calendar' && selectedDate ? (
             <LiquidGlassCard borderRadius={20} style={styles.dateActionBar}>
-              <View style={styles.dateActionHeaderCol}>
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    styles.dateActionTitle,
-                    { color: palette.textPrimary, fontFamily: FONT_FAMILIES.sansBold },
-                  ]}
-                >
-                  Selected: {formatDisplayDate(selectedDate)}
-                </Text>
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    styles.dateActionHint,
-                    {
-                      color: selectedDate > todayISO ? '#F87171' : palette.textMuted,
-                      fontFamily: FONT_FAMILIES.sansMedium,
-                    },
-                  ]}
-                >
-                  {selectedDate > todayISO
-                    ? 'Future date — upcoming days cannot be marked'
-                    : 'Tap status below · Long-press date for notes'}
-                </Text>
-              </View>
-              <View style={styles.dateActionGrid}>
-                {(
-                  [
-                    { label: 'Present', status: 'present' as const, color: '#34D399', bg: 'rgba(16, 185, 129, 0.16)', border: 'rgba(16, 185, 129, 0.35)' },
-                    { label: 'Absent', status: 'absent' as const, color: '#F87171', bg: 'rgba(248, 113, 113, 0.16)', border: 'rgba(248, 113, 113, 0.35)' },
-                    { label: 'Half Day', status: 'half_day' as const, color: '#FBBF24', bg: 'rgba(251, 191, 36, 0.16)', border: 'rgba(251, 191, 36, 0.35)' },
-                    { label: 'Holiday', status: 'holiday' as const, color: '#94A3B8', bg: 'rgba(148, 163, 184, 0.12)', border: 'rgba(148, 163, 184, 0.24)' },
-                  ] as const
-                ).map((btn) => {
-                  const isFuture = selectedDate > todayISO;
-                  return (
-                    <TactilePressable
-                      key={btn.status}
-                      disabled={isFuture}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Mark ${selectedDate} ${btn.label}`}
-                      onPress={() => {
-                        void markDayStatus(subject.id, selectedDate, btn.status);
-                      }}
-                      style={[
-                        styles.dateActionBtn,
-                        {
-                          backgroundColor: btn.bg,
-                          borderColor: btn.border,
-                          opacity: isFuture ? 0.38 : 1,
-                        },
-                      ]}
-                    >
-                      <Text
-                        numberOfLines={1}
-                        style={[
-                          styles.dateActionBtnText,
-                          { color: btn.color, fontFamily: FONT_FAMILIES.sansBold },
-                        ]}
-                      >
-                        {btn.label}
-                      </Text>
-                    </TactilePressable>
-                  );
-                })}
-                <TactilePressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Open note and lecture editor for ${selectedDate}`}
-                  onPress={() => openRecordEditor(subject.id, selectedDate)}
-                  style={[
-                    styles.dateActionBtn,
-                    { backgroundColor: palette.control, borderColor: palette.border },
-                  ]}
-                >
+              <View style={styles.dateActionHeaderRow}>
+                <View style={styles.dateActionHeaderCol}>
                   <Text
                     numberOfLines={1}
                     style={[
-                      styles.dateActionBtnText,
-                      { color: palette.textPrimary, fontFamily: FONT_FAMILIES.sansSemiBold },
+                      styles.dateActionTitle,
+                      { color: palette.textPrimary, fontFamily: FONT_FAMILIES.sansBold },
                     ]}
                   >
-                    Note
+                    Selected: {formatDisplayDate(selectedDate)}
                   </Text>
-                </TactilePressable>
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.dateActionHint,
+                      {
+                        color: isSelectedFuture ? '#F87171' : palette.textMuted,
+                        fontFamily: FONT_FAMILIES.sansMedium,
+                      },
+                    ]}
+                  >
+                    {isSelectedFuture
+                      ? 'Future date — upcoming days cannot be marked'
+                      : 'Tap status below · Long-press date for details'}
+                  </Text>
+                </View>
+
                 <TactilePressable
-                  disabled={selectedDate > todayISO}
+                  disabled={isSelectedFuture}
                   accessibilityRole="button"
                   accessibilityLabel={`Clear status for ${selectedDate}`}
                   onPress={() => {
                     void markDayStatus(subject.id, selectedDate, null);
                   }}
                   style={[
-                    styles.dateActionBtn,
+                    styles.clearPillBtn,
                     {
                       backgroundColor: palette.control,
                       borderColor: palette.border,
-                      opacity: selectedDate > todayISO ? 0.38 : 1,
+                      opacity: isSelectedFuture ? 0.38 : 1,
                     },
                   ]}
                 >
                   <Text
                     numberOfLines={1}
                     style={[
-                      styles.dateActionBtnText,
+                      styles.clearPillText,
                       { color: palette.textMuted, fontFamily: FONT_FAMILIES.sansSemiBold },
                     ]}
                   >
@@ -1288,13 +1263,62 @@ export function SubjectDetailScreen() {
                 </TactilePressable>
               </View>
 
+              <View style={styles.dateActionGrid}>
+                {(
+                  [
+                    { label: 'Present', status: 'present' as const, color: '#34D399', bg: 'rgba(16, 185, 129, 0.16)', border: 'rgba(16, 185, 129, 0.35)' },
+                    { label: 'Absent', status: 'absent' as const, color: '#F87171', bg: 'rgba(248, 113, 113, 0.16)', border: 'rgba(248, 113, 113, 0.35)' },
+                    { label: 'Half Day', status: 'half_day' as const, color: '#FBBF24', bg: 'rgba(251, 191, 36, 0.16)', border: 'rgba(251, 191, 36, 0.35)' },
+                    { label: 'Holiday', status: 'holiday' as const, color: '#94A3B8', bg: 'rgba(148, 163, 184, 0.12)', border: 'rgba(148, 163, 184, 0.24)' },
+                  ] as const
+                ).map((btn) => (
+                  <TactilePressable
+                    key={btn.status}
+                    disabled={isSelectedFuture}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Mark ${selectedDate} ${btn.label}`}
+                    onPress={() => {
+                      void markDayStatus(subject.id, selectedDate, btn.status);
+                    }}
+                    style={[
+                      styles.dateActionBtn,
+                      {
+                        backgroundColor: btn.bg,
+                        borderColor: btn.border,
+                        opacity: isSelectedFuture ? 0.45 : 1,
+                      },
+                    ]}
+                  >
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.dateActionBtnText,
+                        { color: btn.color, fontFamily: FONT_FAMILIES.sansBold },
+                      ]}
+                    >
+                      {btn.label}
+                    </Text>
+                  </TactilePressable>
+                ))}
+              </View>
+
               {/* Inline Note Editor for Selected Date */}
-              <View style={styles.inlineNoteRow}>
+              <View
+                style={[
+                  styles.inlineNoteRow,
+                  { opacity: isSelectedFuture ? 0.45 : 1 },
+                ]}
+              >
                 <TextInput
+                  editable={!isSelectedFuture}
                   value={inlineNote}
                   onChangeText={setInlineNoteDraft}
                   maxLength={300}
-                  placeholder="Add note for selected date..."
+                  placeholder={
+                    isSelectedFuture
+                      ? 'Notes disabled for future dates'
+                      : 'Add note for selected date...'
+                  }
                   placeholderTextColor={palette.textMuted}
                   returnKeyType="done"
                   onSubmitEditing={() => void handleSaveInlineNote()}
@@ -1310,14 +1334,14 @@ export function SubjectDetailScreen() {
                 />
                 <TactilePressable
                   onPress={() => void handleSaveInlineNote()}
-                  disabled={savingInlineNote}
+                  disabled={savingInlineNote || isSelectedFuture}
                   accessibilityRole="button"
                   accessibilityLabel={`Save note for ${selectedDate}`}
                   style={[
                     styles.inlineNoteSaveBtn,
                     {
                       backgroundColor: BRAND_COLORS.primary,
-                      opacity: savingInlineNote ? 0.6 : 1,
+                      opacity: savingInlineNote || isSelectedFuture ? 0.6 : 1,
                     },
                   ]}
                 >
@@ -2420,7 +2444,6 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
     marginBottom: 8,
   },
   weekdayCell: {
@@ -2443,17 +2466,23 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     borderRadius: 14,
-    backgroundColor: 'rgba(16, 185, 129, 0.22)',
+    backgroundColor: 'rgba(16, 185, 129, 0.20)',
     borderWidth: 1.5,
     borderColor: 'rgba(52, 211, 153, 0.65)',
-    borderTopColor: 'rgba(255, 255, 255, 0.45)',
+    borderTopColor: 'rgba(255, 255, 255, 0.48)',
     overflow: 'hidden',
     shadowColor: '#10B981',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 10,
-    elevation: 6,
     zIndex: 0,
+  },
+  glidingSelectionTileFuture: {
+    backgroundColor: 'rgba(148, 163, 184, 0.12)',
+    borderColor: 'rgba(148, 163, 184, 0.35)',
+    borderTopColor: 'rgba(255, 255, 255, 0.25)',
+    shadowColor: '#94A3B8',
+    shadowOpacity: 0.15,
   },
   weekRow: {
     width: '100%',
@@ -2473,21 +2502,33 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
     position: 'relative',
+  },
+  dayNumSlot: {
+    height: 22,
+    marginTop: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayStatusSlot: {
+    height: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   noteCornerDot: {
     position: 'absolute',
-    top: 5,
+    top: 4,
     right: 5,
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: '#34D399',
+    width: 4,
+    height: 4,
+    borderRadius: 99,
+    backgroundColor: '#FBBF24',
+    zIndex: 3,
   },
   dayNum: {
     fontSize: 15,
     lineHeight: 18,
+    textAlign: 'center',
   },
   dotIndicatorRow: {
     flexDirection: 'row',
@@ -2500,6 +2541,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     lineHeight: 13,
+    textAlign: 'center',
   },
   microDot: {
     width: 4,
@@ -2944,9 +2986,29 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 10,
   },
+  dateActionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
   dateActionHeaderCol: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'column',
     gap: 2,
+  },
+  clearPillBtn: {
+    paddingHorizontal: 12,
+    height: 30,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  clearPillText: {
+    fontSize: 11.5,
   },
   dateActionTitle: {
     fontSize: 13.5,
@@ -2959,21 +3021,20 @@ const styles = StyleSheet.create({
   },
   dateActionGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    gap: 7,
   },
   dateActionBtn: {
-    flexGrow: 1,
-    minWidth: '30%',
+    flex: 1,
+    minWidth: 0,
     minHeight: 44,
     borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 10,
+    paddingHorizontal: 4,
   },
   dateActionBtnText: {
-    fontSize: 12.5,
+    fontSize: 12,
   },
   analyticsLeftCol: {
     flex: 1,
