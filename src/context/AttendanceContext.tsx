@@ -35,11 +35,13 @@ import {
   initDatabase,
   reorderSubject as dbReorderSubject,
   restoreSafetySnapshot,
+  saveDateNote as dbSaveDateNote,
   saveSubject as dbSaveSubject,
   setSubjectDayStatus,
   updateAppSettings,
   upsertAttendanceRecord,
 } from '../db/database';
+import type { UpdateInfo } from '../lib/appUpdater';
 import {
   configureNotifications,
   handleNotificationResponse,
@@ -97,6 +99,7 @@ interface AttendanceContextValue {
     status: AttendanceStatus
   ) => Promise<boolean>;
   saveFullRecord: (record: Omit<AttendanceRecord, 'updatedAt'>) => Promise<boolean>;
+  saveDateNote: (subjectId: string, date: string, note: string) => Promise<boolean>;
   bulkMarkDate: (
     date: string,
     status: Exclude<AttendanceStatus, null>,
@@ -112,6 +115,11 @@ interface AttendanceContextValue {
   editorTarget: EditorTarget | null;
   openRecordEditor: (subjectId: string, date: string) => void;
   closeRecordEditor: () => void;
+  availableUpdate: UpdateInfo | null;
+  setAvailableUpdate: (info: UpdateInfo | null) => void;
+  updateModalOpen: boolean;
+  openUpdateModal: () => void;
+  closeUpdateModal: () => void;
 }
 
 const AttendanceContext = createContext<AttendanceContextValue | null>(null);
@@ -125,6 +133,16 @@ export function AttendanceProvider({ children }: { children: React.ReactNode }) 
   const [sortMode, setSortMode] = useState<SortMode>('order');
   const [lockedByPin, setLockedByPin] = useState(false);
   const [editorTarget, setEditorTarget] = useState<EditorTarget | null>(null);
+  const [availableUpdate, setAvailableUpdate] = useState<UpdateInfo | null>(null);
+  const [updateModalOpen, setUpdateModalOpen] = useState(false);
+
+  const openUpdateModal = useCallback(() => {
+    setUpdateModalOpen(true);
+  }, []);
+
+  const closeUpdateModal = useCallback(() => {
+    setUpdateModalOpen(false);
+  }, []);
   const [toast, setToast] = useState<FloatingToastData | null>(null);
 
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -444,11 +462,16 @@ export function AttendanceProvider({ children }: { children: React.ReactNode }) 
           !record.overtimeHours &&
           !record.shift &&
           !record.note.trim();
+        const noteChanged =
+          record.note.trim().length > 0 &&
+          (previous?.note ?? '').trim() !== record.note.trim();
         const label = isClearing
           ? 'Cleared entry'
-          : record.status
-            ? `Marked ${STATUS_META[record.status].label}`
-            : 'Saved note';
+          : noteChanged
+            ? 'Note saved'
+            : record.status
+              ? `Marked ${STATUS_META[record.status].label}`
+              : 'Note saved';
 
         showToast(label, {
           tone: 'success',
@@ -463,6 +486,37 @@ export function AttendanceProvider({ children }: { children: React.ReactNode }) 
               shift: previous?.shift ?? '',
               note: previous?.note ?? '',
             });
+            await refreshAll();
+            void refreshAllWidgets();
+          },
+        });
+        return true;
+      } catch (err) {
+        if (err instanceof AttendanceLockedError) {
+          showToast(err.message, 'error');
+          return false;
+        }
+        throw err;
+      }
+    },
+    [refreshAll, showToast]
+  );
+
+  const saveDateNote = useCallback(
+    async (subjectId: string, date: string, note: string) => {
+      const previous = recordsRef.current.find(
+        (r) => r.subjectId === subjectId && r.date === date
+      );
+      try {
+        await dbSaveDateNote(subjectId, date, note);
+        await refreshAll();
+        void refreshAllWidgets();
+
+        showToast(note.trim() ? 'Note saved' : 'Note cleared', {
+          tone: 'success',
+          undoLabel: 'Undo',
+          onUndo: async () => {
+            await dbSaveDateNote(subjectId, date, previous?.note ?? '');
             await refreshAll();
             void refreshAllWidgets();
           },
@@ -584,12 +638,18 @@ export function AttendanceProvider({ children }: { children: React.ReactNode }) 
       reorderSubject,
       markDayStatus,
       saveFullRecord,
+      saveDateNote,
       bulkMarkDate,
       bulkMarkSubjectDates,
       restoreSnapshot,
       editorTarget,
       openRecordEditor,
       closeRecordEditor,
+      availableUpdate,
+      setAvailableUpdate,
+      updateModalOpen,
+      openUpdateModal,
+      closeUpdateModal,
     }),
     [
       ready,
@@ -612,12 +672,17 @@ export function AttendanceProvider({ children }: { children: React.ReactNode }) 
       reorderSubject,
       markDayStatus,
       saveFullRecord,
+      saveDateNote,
       bulkMarkDate,
       bulkMarkSubjectDates,
       restoreSnapshot,
       editorTarget,
       openRecordEditor,
       closeRecordEditor,
+      availableUpdate,
+      updateModalOpen,
+      openUpdateModal,
+      closeUpdateModal,
     ]
   );
 

@@ -49,6 +49,7 @@ export interface AppSettings {
   semesterEndDate: string; // "YYYY-MM-DD" or ''
   lastUpdateCheckAt: number;
   dismissedVersion: string;
+  notifiedUpdateVersion?: string;
 }
 
 export interface SafetySnapshot {

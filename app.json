@@ -2,7 +2,7 @@
   "expo": {
     "name": "AttendUp",
     "slug": "ankit-kumar",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -13,7 +13,7 @@
     },
     "android": {
       "package": "com.ankitxdev.attendup",
-      "versionCode": 7,
+      "versionCode": 8,
       "adaptiveIcon": {
         "backgroundColor": "#050608",
         "foregroundImage": "./assets/adaptive-icon.png"

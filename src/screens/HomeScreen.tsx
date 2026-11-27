@@ -229,6 +229,8 @@ export function HomeScreen() {
     reorderSubject,
     saveSubject,
     showToast,
+    availableUpdate,
+    openUpdateModal,
   } = useAttendance();
 
   const [query, setQuery] = useState('');
@@ -477,6 +479,39 @@ export function HomeScreen() {
               </Pressable>
             </View>
           </View>
+
+          {availableUpdate ? (
+            <Pressable
+              onPress={openUpdateModal}
+              accessibilityRole="button"
+              accessibilityLabel={`Update available version ${availableUpdate.latestVersion}`}
+              style={styles.updateBannerWrap}
+            >
+              <LiquidGlassCard
+                borderRadius={999}
+                focused
+                style={[
+                  styles.updateBannerPill,
+                  {
+                    backgroundColor: 'rgba(16, 185, 129, 0.14)',
+                    borderColor: 'rgba(52, 211, 153, 0.36)',
+                  },
+                ]}
+              >
+                <View style={styles.updateBannerDot} />
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.updateBannerText,
+                    { color: BRAND_COLORS.bright, fontFamily: FONT_FAMILIES.sansSemiBold },
+                  ]}
+                >
+                  Update Available · v{availableUpdate.latestVersion} — Tap to install
+                </Text>
+                <ArrowRight size={14} color={BRAND_COLORS.bright} strokeWidth={2} />
+              </LiquidGlassCard>
+            </Pressable>
+          ) : null}
 
           {/* Main Scrollable Content */}
           <FlatList
@@ -966,6 +1001,18 @@ export function HomeScreen() {
             )}
           />
 
+          {/* Dim backdrop when search is focused or active to prevent bleed-through */}
+          {searchFocused || query.trim().length > 0 ? (
+            <Pressable
+              onPress={() => {
+                setSearchFocused(false);
+                Keyboard.dismiss();
+              }}
+              style={styles.searchBackdrop}
+              accessibilityLabel="Dismiss search"
+            />
+          ) : null}
+
           {/* Floating Bottom Pill Dock (Thumb Zone) */}
           <View
             pointerEvents="box-none"
@@ -977,9 +1024,18 @@ export function HomeScreen() {
             {searchFocused || query.trim().length > 0 ? (
               <LiquidGlassCard
                 borderRadius={22}
-                useNativeBlur
+                useNativeBlur={false}
                 focused
-                style={styles.searchDropdown}
+                style={[
+                  styles.searchDropdown,
+                  {
+                    backgroundColor: isDark ? '#0D1014' : '#FFFFFF',
+                    borderColor: 'rgba(52, 211, 153, 0.30)',
+                    borderTopColor: isDark
+                      ? 'rgba(255, 255, 255, 0.16)'
+                      : 'rgba(16, 185, 129, 0.35)',
+                  },
+                ]}
               >
                 <View style={styles.searchDropdownHeader}>
                   <Text
@@ -1117,9 +1173,18 @@ export function HomeScreen() {
 
             <LiquidGlassCard
               borderRadius={999}
-              useNativeBlur
+              useNativeBlur={false}
               focused
-              style={styles.floatingDock}
+              style={[
+                styles.floatingDock,
+                {
+                  backgroundColor: isDark ? '#0D1014' : '#FFFFFF',
+                  borderColor: 'rgba(52, 211, 153, 0.30)',
+                  borderTopColor: isDark
+                    ? 'rgba(255, 255, 255, 0.16)'
+                    : 'rgba(16, 185, 129, 0.35)',
+                },
+              ]}
             >
               <Pressable
                 onPress={handleOpenAdd}
@@ -1874,11 +1939,22 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
   },
+  searchBackdrop: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(5, 6, 8, 0.86)',
+    zIndex: 20,
+  },
   dockWrap: {
     position: 'absolute',
     left: 16,
     right: 16,
     bottom: 0,
+    zIndex: 30,
+    elevation: 16,
   },
   floatingDock: {
     height: 58,
@@ -1888,6 +1964,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    zIndex: 30,
+    elevation: 16,
   },
   dockPlusBtn: {
     width: 42,
@@ -2062,6 +2140,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     paddingHorizontal: 14,
     paddingVertical: 10,
+    borderWidth: 1,
+    zIndex: 30,
+    elevation: 16,
   },
   searchDropdownHeader: {
     flexDirection: 'row',
@@ -2105,5 +2186,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+  },
+  updateBannerWrap: {
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  updateBannerPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderWidth: 1,
+  },
+  updateBannerDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#34D399',
+  },
+  updateBannerText: {
+    fontSize: 12.5,
+    flexShrink: 1,
   },
 });

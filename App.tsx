@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View } from 'react-native';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { AppState, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
@@ -23,13 +23,21 @@ import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { PinLockScreen } from './src/components/PinLockScreen';
 import { RecordEditorSheet } from './src/components/RecordEditorSheet';
 import { UpdateModal } from './src/components/UpdateModal';
-import { checkForAppUpdate, type UpdateInfo } from './src/lib/appUpdater';
+import { checkForAppUpdate } from './src/lib/appUpdater';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function AppRoot({ onReadyToHideSplash }: { onReadyToHideSplash: () => void }) {
-  const { ready, isDark, lockedByPin } = useAttendance();
-  const [pendingUpdate, setPendingUpdate] = useState<UpdateInfo | null>(null);
+  const {
+    ready,
+    isDark,
+    lockedByPin,
+    availableUpdate,
+    setAvailableUpdate,
+    updateModalOpen,
+    openUpdateModal,
+    closeUpdateModal,
+  } = useAttendance();
 
   useEffect(() => {
     if (ready) {
@@ -39,18 +47,29 @@ function AppRoot({ onReadyToHideSplash }: { onReadyToHideSplash: () => void }) {
 
   useEffect(() => {
     let active = true;
-    const timer = setTimeout(() => {
+    const runUpdateCheck = () => {
       void checkForAppUpdate().then((info) => {
-        if (active && info) {
-          setPendingUpdate(info);
+        if (!active || !info) return;
+        setAvailableUpdate(info);
+        if (!info.isDismissed) {
+          openUpdateModal();
         }
       });
-    }, 3000);
+    };
+
+    const timer = setTimeout(runUpdateCheck, 1500);
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        runUpdateCheck();
+      }
+    });
+
     return () => {
       active = false;
       clearTimeout(timer);
+      sub.remove();
     };
-  }, []);
+  }, [setAvailableUpdate, openUpdateModal]);
 
   if (!ready) {
     return null;
@@ -68,8 +87,8 @@ function AppRoot({ onReadyToHideSplash }: { onReadyToHideSplash: () => void }) {
         </BottomSheetModalProvider>
       )}
       <UpdateModal
-        updateInfo={pendingUpdate}
-        onClose={() => setPendingUpdate(null)}
+        updateInfo={updateModalOpen ? availableUpdate : null}
+        onClose={closeUpdateModal}
       />
       <AnimatedSplashOverlay />
     </>

@@ -116,7 +116,8 @@ const CalendarDayCell = React.memo(function CalendarDayCell({
   onLongPressDay,
 }: CalendarDayCellProps) {
   const outerBorderColor = isSelected ? '#34D399' : tileBorder;
-  const outerBorderWidth = isSelected ? 1.5 : 1;
+  const outerBorderWidth = isSelected ? 1.75 : 1;
+  const outerBg = isSelected ? 'rgba(16, 185, 129, 0.22)' : tileBg;
 
   return (
     <View style={styles.dayCellSlot}>
@@ -128,13 +129,16 @@ const CalendarDayCell = React.memo(function CalendarDayCell({
         style={({ pressed }) => [
           styles.dayCell,
           {
-            backgroundColor: tileBg,
+            backgroundColor: outerBg,
             borderColor: outerBorderColor,
             borderWidth: outerBorderWidth,
             opacity: !inCurrentMonth ? 0.3 : pressed ? 0.75 : 1,
           },
+          isSelected ? styles.dayCellSelectedGlow : null,
         ]}
       >
+        {hasNote ? <View style={styles.noteCornerDot} /> : null}
+
         <Text
           style={[
             styles.dayNum,
@@ -163,13 +167,10 @@ const CalendarDayCell = React.memo(function CalendarDayCell({
           </Text>
         ) : null}
 
-        {isToday || hasNote || hasOt ? (
+        {isToday || hasOt ? (
           <View style={styles.dotIndicatorRow}>
             {isToday ? (
               <View style={[styles.microDot, { backgroundColor: '#34D399' }]} />
-            ) : null}
-            {hasNote ? (
-              <View style={[styles.microDot, { backgroundColor: '#94A3B8' }]} />
             ) : null}
             {hasOt ? (
               <View
@@ -225,6 +226,7 @@ export function SubjectDetailScreen() {
     isDark,
     openRecordEditor,
     markDayStatus,
+    saveDateNote,
     saveSubject,
     bulkMarkSubjectDates,
     showToast,
@@ -257,13 +259,16 @@ export function SubjectDetailScreen() {
   const translateX = useSharedValue(0);
   const todayISO = formatDateISO(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(todayISO);
+  const [inlineNoteDraft, setInlineNoteDraft] = useState<string | null>(null);
+  const [savingInlineNote, setSavingInlineNote] = useState(false);
   const subjectId = subject?.id;
   const autoMarkSundays = subject?.autoMarkSundays ?? true;
 
   const handleSelectDay = useCallback((dateISO: string) => {
     void Haptics.selectionAsync();
     setSelectedDate(dateISO);
-  }, []);
+    setInlineNoteDraft(null);
+  }, [setInlineNoteDraft]);
 
   const handleOpenDay = useCallback(
     (dateISO: string) => {
@@ -286,6 +291,28 @@ export function SubjectDetailScreen() {
     }
     return map;
   }, [subjectRecords]);
+
+  const inlineNote =
+    inlineNoteDraft ?? (selectedDate ? recordMap.get(selectedDate)?.note ?? '' : '');
+
+  const handleSaveInlineNote = useCallback(async () => {
+    if (!subjectId || !selectedDate || savingInlineNote) return;
+    if (inlineNote.length > 300) {
+      showToast('Note cannot exceed 300 characters.', 'error');
+      return;
+    }
+    setSavingInlineNote(true);
+    try {
+      const ok = await saveDateNote(subjectId, selectedDate, inlineNote.trim());
+      if (ok) {
+        setInlineNoteDraft(null);
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Keyboard.dismiss();
+      }
+    } finally {
+      setSavingInlineNote(false);
+    }
+  }, [subjectId, selectedDate, savingInlineNote, inlineNote, saveDateNote, showToast]);
 
   const todayRecord = recordMap.get(todayISO);
   const todayEffective = subject
@@ -882,32 +909,32 @@ export function SubjectDetailScreen() {
                           : null;
 
                         let tileBg = isDark
-                          ? 'rgba(255, 255, 255, 0.03)'
+                          ? 'rgba(255, 255, 255, 0.045)'
                           : palette.control;
                         let tileBorder = isDark
-                          ? 'rgba(255, 255, 255, 0.06)'
+                          ? 'rgba(255, 255, 255, 0.09)'
                           : palette.border;
                         let statusColor: string | null = null;
 
                         if (status === 'present') {
-                          tileBg = 'rgba(16, 185, 129, 0.16)';
-                          tileBorder = 'rgba(16, 185, 129, 0.35)';
+                          tileBg = 'rgba(16, 185, 129, 0.14)';
+                          tileBorder = 'rgba(16, 185, 129, 0.30)';
                           statusColor = '#34D399';
                         } else if (status === 'absent') {
-                          tileBg = 'rgba(248, 113, 113, 0.16)';
-                          tileBorder = 'rgba(248, 113, 113, 0.35)';
+                          tileBg = 'rgba(248, 113, 113, 0.14)';
+                          tileBorder = 'rgba(248, 113, 113, 0.30)';
                           statusColor = '#F87171';
                         } else if (status === 'half_day') {
-                          tileBg = 'rgba(251, 191, 36, 0.16)';
-                          tileBorder = 'rgba(251, 191, 36, 0.35)';
+                          tileBg = 'rgba(251, 191, 36, 0.14)';
+                          tileBorder = 'rgba(251, 191, 36, 0.30)';
                           statusColor = '#FBBF24';
                         } else if (status) {
-                          tileBg = 'rgba(148, 163, 184, 0.12)';
-                          tileBorder = 'rgba(148, 163, 184, 0.24)';
+                          tileBg = 'rgba(148, 163, 184, 0.10)';
+                          tileBorder = 'rgba(148, 163, 184, 0.22)';
                           statusColor = '#94A3B8';
                         } else if (!cell.inCurrentMonth) {
-                          tileBg = 'transparent';
-                          tileBorder = 'transparent';
+                          tileBg = isDark ? 'rgba(255, 255, 255, 0.025)' : 'transparent';
+                          tileBorder = isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent';
                         }
 
                         return (
@@ -1161,6 +1188,51 @@ export function SubjectDetailScreen() {
                     ]}
                   >
                     Clear
+                  </Text>
+                </TactilePressable>
+              </View>
+
+              {/* Inline Note Editor for Selected Date */}
+              <View style={styles.inlineNoteRow}>
+                <TextInput
+                  value={inlineNote}
+                  onChangeText={setInlineNoteDraft}
+                  maxLength={300}
+                  placeholder="Add note for selected date..."
+                  placeholderTextColor={palette.textMuted}
+                  returnKeyType="done"
+                  onSubmitEditing={() => void handleSaveInlineNote()}
+                  style={[
+                    styles.inlineNoteInput,
+                    {
+                      backgroundColor: palette.control,
+                      borderColor: palette.border,
+                      color: palette.textPrimary,
+                      fontFamily: FONT_FAMILIES.sansRegular,
+                    },
+                  ]}
+                />
+                <TactilePressable
+                  onPress={() => void handleSaveInlineNote()}
+                  disabled={savingInlineNote}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Save note for ${selectedDate}`}
+                  style={[
+                    styles.inlineNoteSaveBtn,
+                    {
+                      backgroundColor: BRAND_COLORS.primary,
+                      opacity: savingInlineNote ? 0.6 : 1,
+                    },
+                  ]}
+                >
+                  <Check size={15} color="#050608" strokeWidth={2.5} />
+                  <Text
+                    style={[
+                      styles.inlineNoteSaveText,
+                      { fontFamily: FONT_FAMILIES.sansBold },
+                    ]}
+                  >
+                    {savingInlineNote ? 'Saving' : 'Save Note'}
                   </Text>
                 </TactilePressable>
               </View>
@@ -2260,7 +2332,6 @@ const styles = StyleSheet.create({
   },
   weeksWrap: {
     width: '100%',
-    gap: 5,
   },
   weekRow: {
     width: '100%',
@@ -2270,18 +2341,35 @@ const styles = StyleSheet.create({
   dayCellSlot: {
     flex: 1,
     minWidth: 0,
-    paddingHorizontal: 2.5,
-    height: 46,
+    margin: 2.5,
+    height: 48,
     alignItems: 'stretch',
     justifyContent: 'center',
   },
   dayCell: {
     width: '100%',
-    height: 46,
-    borderRadius: 11,
+    height: 48,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
+    position: 'relative',
+  },
+  dayCellSelectedGlow: {
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  noteCornerDot: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#34D399',
   },
   dayNum: {
     fontSize: 15,
@@ -2795,5 +2883,33 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  inlineNoteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  inlineNoteInput: {
+    flex: 1,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    fontSize: 13,
+  },
+  inlineNoteSaveBtn: {
+    height: 40,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  inlineNoteSaveText: {
+    color: '#050608',
+    fontSize: 12.5,
+    fontWeight: '700',
   },
 });

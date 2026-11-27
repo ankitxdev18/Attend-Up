@@ -3,6 +3,7 @@ import * as Application from 'expo-application';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
+import * as Notifications from 'expo-notifications';
 import { getAppSettings, updateAppSettings } from '../db/database';
 
 export const GITHUB_LATEST_RELEASE_API =
@@ -10,7 +11,7 @@ export const GITHUB_LATEST_RELEASE_API =
 export const LATEST_RELEASES_PAGE =
   'https://github.com/ankitxdev18/Attend-Up/releases/latest';
 
-const AUTO_CHECK_INTERVAL_MS = 12 * 60 * 60 * 1000;
+const AUTO_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 6000;
 
 export interface UpdateInfo {
@@ -20,6 +21,7 @@ export interface UpdateInfo {
   downloadUrl: string;
   htmlUrl: string;
   hasApkAsset: boolean;
+  isDismissed?: boolean;
 }
 
 interface GitHubAsset {
@@ -112,8 +114,23 @@ export async function checkForAppUpdate(options?: {
       return null;
     }
 
-    if (!force && settings.dismissedVersion === latestVersion) {
-      return null;
+    const isDismissed = !force && settings.dismissedVersion === latestVersion;
+
+    if (settings.notifiedUpdateVersion !== latestVersion && !isExpoGoRuntime()) {
+      await updateAppSettings({ notifiedUpdateVersion: latestVersion }).catch(() => {});
+      try {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: 'AttendUp Update Available',
+            body: `Version v${latestVersion} is ready with new improvements. Tap to update.`,
+            data: { type: 'app_update', version: latestVersion },
+            sound: true,
+          },
+          trigger: null,
+        });
+      } catch {
+        // Ignore notification errors when permissions are denied or unsupported.
+      }
     }
 
     const assets = Array.isArray(data.assets) ? data.assets : [];
@@ -136,6 +153,7 @@ export async function checkForAppUpdate(options?: {
       downloadUrl,
       htmlUrl,
       hasApkAsset: Boolean(apkAsset?.browser_download_url),
+      isDismissed,
     };
   } catch {
     return null;

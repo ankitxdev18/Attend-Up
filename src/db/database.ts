@@ -47,6 +47,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   semesterEndDate: '',
   lastUpdateCheckAt: 0,
   dismissedVersion: '',
+  notifiedUpdateVersion: '',
 };
 
 const MAX_SAFETY_SNAPSHOTS = 15;
@@ -122,7 +123,8 @@ export async function initDatabase(): Promise<void> {
         lastBackupAt INTEGER NOT NULL DEFAULT 0,
         semesterEndDate TEXT NOT NULL DEFAULT '',
         lastUpdateCheckAt INTEGER NOT NULL DEFAULT 0,
-        dismissedVersion TEXT NOT NULL DEFAULT ''
+        dismissedVersion TEXT NOT NULL DEFAULT '',
+        notifiedUpdateVersion TEXT NOT NULL DEFAULT ''
       );
       CREATE TABLE IF NOT EXISTS snapshots (
         id TEXT PRIMARY KEY NOT NULL,
@@ -168,6 +170,11 @@ export async function initDatabase(): Promise<void> {
     if (!colNames.has('dismissedVersion')) {
       await db.execAsync(
         `ALTER TABLE settings ADD COLUMN dismissedVersion TEXT NOT NULL DEFAULT '';`
+      );
+    }
+    if (!colNames.has('notifiedUpdateVersion')) {
+      await db.execAsync(
+        `ALTER TABLE settings ADD COLUMN notifiedUpdateVersion TEXT NOT NULL DEFAULT '';`
       );
     }
 
@@ -315,6 +322,7 @@ export async function getAppSettings(): Promise<AppSettings> {
     semesterEndDate: string;
     lastUpdateCheckAt: number;
     dismissedVersion: string;
+    notifiedUpdateVersion?: string;
   }>('SELECT * FROM settings WHERE id = ?', ['app']);
 
   if (!row) return DEFAULT_SETTINGS;
@@ -334,6 +342,7 @@ export async function getAppSettings(): Promise<AppSettings> {
     semesterEndDate: row.semesterEndDate || '',
     lastUpdateCheckAt: Number(row.lastUpdateCheckAt) || 0,
     dismissedVersion: row.dismissedVersion || '',
+    notifiedUpdateVersion: row.notifiedUpdateVersion || '',
   };
 }
 
@@ -354,7 +363,8 @@ export async function updateAppSettings(patch: Partial<AppSettings>): Promise<Ap
      SET lockAttendance = ?, preferNote = ?, darkMode = ?, reminderEnabled = ?,
          reminderTime = ?, reminderSubjectIds = ?, widgetSubjectId = ?,
          widgetStyle = ?, widgetMonth = ?, pinHash = ?, lastBackupAt = ?,
-         semesterEndDate = ?, lastUpdateCheckAt = ?, dismissedVersion = ?
+         semesterEndDate = ?, lastUpdateCheckAt = ?, dismissedVersion = ?,
+         notifiedUpdateVersion = ?
      WHERE id = 'app'`,
     [
       next.lockAttendance ? 1 : 0,
@@ -371,6 +381,7 @@ export async function updateAppSettings(patch: Partial<AppSettings>): Promise<Ap
       next.semesterEndDate ?? '',
       Number(next.lastUpdateCheckAt) || 0,
       next.dismissedVersion ?? '',
+      next.notifiedUpdateVersion ?? '',
     ]
   );
   return next;
@@ -580,6 +591,64 @@ export async function upsertAttendanceRecord(
       validClasses,
       validShift,
       validNote,
+      Date.now(),
+    ]
+  );
+}
+
+/**
+ * Saves or updates a note for a subject date while preserving any existing
+ * attendance status, overtime hours, classes count, and shift.
+ */
+export async function saveDateNote(
+  subjectId: string,
+  date: string,
+  note: string
+): Promise<void> {
+  await initDatabase();
+  const validDate = validateDateISO(date);
+  const validNote = validateNote(note);
+
+  await assertAttendanceUnlockedForDate(validDate);
+
+  const db = getDb();
+  const existing = await db.getFirstAsync<{
+    status: AttendanceStatus;
+    overtimeHours: number;
+    classesCount: number;
+    shift: string;
+  }>(
+    'SELECT status, overtimeHours, classesCount, shift FROM records WHERE subjectId = ? AND date = ?',
+    [subjectId, validDate]
+  );
+
+  const status = validateStatus(existing?.status ?? null);
+  const overtimeHours = existing?.overtimeHours ?? 0;
+  const classesCount = Math.max(1, Math.min(4, Math.round(existing?.classesCount ?? 1)));
+  const shift = existing?.shift ?? '';
+
+  if (status === null && overtimeHours <= 0 && !shift && !validNote.trim()) {
+    await db.runAsync('DELETE FROM records WHERE subjectId = ? AND date = ?', [
+      subjectId,
+      validDate,
+    ]);
+    return;
+  }
+
+  await db.runAsync(
+    `INSERT INTO records (subjectId, date, status, overtimeHours, classesCount, shift, note, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(subjectId, date) DO UPDATE SET
+       note = excluded.note,
+       updatedAt = excluded.updatedAt`,
+    [
+      subjectId,
+      validDate,
+      status,
+      overtimeHours,
+      classesCount,
+      shift,
+      validNote.trim(),
       Date.now(),
     ]
   );
