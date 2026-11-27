@@ -116,7 +116,7 @@ const CalendarDayCell = React.memo(function CalendarDayCell({
   onLongPressDay,
 }: CalendarDayCellProps) {
   const outerBorderColor = isSelected ? '#34D399' : tileBorder;
-  const outerBorderWidth = isSelected ? 1.75 : 1;
+  const outerBorderWidth = isSelected ? 2 : 1;
   const outerBg = isSelected ? 'rgba(16, 185, 129, 0.22)' : tileBg;
 
   return (
@@ -908,11 +908,9 @@ export function SubjectDetailScreen() {
                             : meta.short
                           : null;
 
-                        let tileBg = isDark
-                          ? 'rgba(255, 255, 255, 0.045)'
-                          : palette.control;
+                        let tileBg = isDark ? '#12161B' : palette.control;
                         let tileBorder = isDark
-                          ? 'rgba(255, 255, 255, 0.09)'
+                          ? 'rgba(255, 255, 255, 0.08)'
                           : palette.border;
                         let statusColor: string | null = null;
 
@@ -933,8 +931,8 @@ export function SubjectDetailScreen() {
                           tileBorder = 'rgba(148, 163, 184, 0.22)';
                           statusColor = '#94A3B8';
                         } else if (!cell.inCurrentMonth) {
-                          tileBg = isDark ? 'rgba(255, 255, 255, 0.025)' : 'transparent';
-                          tileBorder = isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent';
+                          tileBg = isDark ? '#0D1014' : 'transparent';
+                          tileBorder = isDark ? 'rgba(255, 255, 255, 0.04)' : 'transparent';
                         }
 
                         return (
@@ -1702,7 +1700,10 @@ export function SubjectDetailScreen() {
             onPress={() => {}}
             style={[
               styles.bulkSheetCard,
-              { backgroundColor: palette.sheet, borderColor: palette.border },
+              {
+                backgroundColor: isDark ? '#0D1014' : '#FFFFFF',
+                borderColor: isDark ? 'rgba(52, 211, 153, 0.28)' : palette.border,
+              },
             ]}
           >
             <View style={styles.simHeader}>
@@ -1877,8 +1878,8 @@ export function SubjectDetailScreen() {
             style={[
               styles.simModalCard,
               {
-                backgroundColor: isDark ? '#0E1114' : '#FFFFFF',
-                borderColor: palette.border,
+                backgroundColor: isDark ? '#0D1014' : '#FFFFFF',
+                borderColor: isDark ? 'rgba(52, 211, 153, 0.28)' : palette.border,
               },
             ]}
           >
@@ -2621,7 +2622,7 @@ const styles = StyleSheet.create({
   },
   modalOverlayBottom: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.68)',
+    backgroundColor: 'rgba(5, 6, 8, 0.88)',
     justifyContent: 'flex-end',
     padding: 16,
   },

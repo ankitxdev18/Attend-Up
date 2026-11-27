@@ -18,7 +18,6 @@ import {
   BRAND_COLORS,
   FONT_FAMILIES,
   HEADING_STYLE,
-  SUBJECT_COLORS,
   TABULAR_NUMS,
   UI_METRICS,
 } from '../theme/tokens';
@@ -46,13 +45,10 @@ function SubjectFormBody({
   editingSubject: Subject | null;
   onClose: () => void;
 }) {
-  const { palette, saveSubject, showToast } = useAttendance();
+  const { palette, isDark, saveSubject, showToast } = useAttendance();
   const [name, setName] = useState(editingSubject?.name ?? '');
   const [target, setTarget] = useState(
     String(editingSubject?.targetPercentage ?? 75)
-  );
-  const [color, setColor] = useState<string>(
-    editingSubject?.color ?? SUBJECT_COLORS[0]
   );
   const [autoMarkSundays, setAutoMarkSundays] = useState(
     editingSubject?.autoMarkSundays ?? true
@@ -85,7 +81,7 @@ function SubjectFormBody({
         id: editingSubject?.id,
         name,
         targetPercentage: parsedTarget,
-        color,
+        color: editingSubject?.color ?? BRAND_COLORS.primary,
         autoMarkSundays,
         scheduleDays,
       });
@@ -107,7 +103,18 @@ function SubjectFormBody({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.backdrop}
     >
-      <LiquidGlassCard borderRadius={28} useNativeBlur focused style={styles.card}>
+      <LiquidGlassCard
+        borderRadius={28}
+        useNativeBlur={false}
+        focused
+        style={[
+          styles.card,
+          {
+            backgroundColor: isDark ? '#0D1014' : '#FFFFFF',
+            borderColor: isDark ? 'rgba(52, 211, 153, 0.28)' : palette.border,
+          },
+        ]}
+      >
         <View style={styles.header}>
           <Text
             style={[
@@ -221,34 +228,6 @@ function SubjectFormBody({
           })}
         </View>
 
-        <Text
-          style={[
-            styles.label,
-            { color: palette.textSecondary, fontFamily: FONT_FAMILIES.sansSemiBold },
-          ]}
-        >
-          Accent color
-        </Text>
-        <View style={styles.swatchRow}>
-          {SUBJECT_COLORS.map((swatch) => {
-            const selected = color === swatch;
-            return (
-              <Pressable
-                key={swatch}
-                onPress={() => setColor(swatch)}
-                style={[
-                  styles.swatch,
-                  {
-                    backgroundColor: swatch,
-                    borderWidth: selected ? 2.5 : 0,
-                    borderColor: palette.textPrimary,
-                  },
-                ]}
-              />
-            );
-          })}
-        </View>
-
         <View style={styles.switchRow}>
           <View style={{ flex: 1, paddingRight: 12 }}>
             <Text
@@ -337,12 +316,12 @@ export function SubjectFormModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.68)',
+    backgroundColor: 'rgba(5, 6, 8, 0.88)',
     justifyContent: 'center',
     padding: 20,
   },
   card: {
-    borderRadius: 24,
+    borderRadius: 28,
     borderWidth: 1,
     padding: 20,
   },
@@ -393,17 +372,6 @@ const styles = StyleSheet.create({
   dayPillText: {
     fontSize: 12,
     fontWeight: '600',
-  },
-  swatchRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 16,
-  },
-  swatch: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
   },
   switchRow: {
     flexDirection: 'row',

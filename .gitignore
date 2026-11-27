@@ -26,8 +26,10 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 
-# macOS
+# macOS & Windows OS clutter
 .DS_Store
+Thumbs.db
+Desktop.ini
 *.pem
 
 # local env files
@@ -42,5 +44,7 @@ android/
 android/build/
 android/app/build/
 *.keystore
+*.apk
 dist-release/
 .tmp-bundle-check/
+.tmp-export-check/

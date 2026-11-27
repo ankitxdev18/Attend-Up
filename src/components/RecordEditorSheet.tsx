@@ -590,6 +590,7 @@ export function RecordEditorSheet() {
     records,
     settings,
     palette,
+    isDark,
   } = useAttendance();
 
   const sheetRef = useRef<BottomSheetModal>(null);
@@ -628,6 +629,7 @@ export function RecordEditorSheet() {
         {...props}
         appearsOnIndex={0}
         disappearsOnIndex={-1}
+        opacity={0.88}
         pressBehavior="close"
       />
     ),
@@ -647,11 +649,11 @@ export function RecordEditorSheet() {
       backdropComponent={renderBackdrop}
       onDismiss={handleDismiss}
       backgroundStyle={{
-        backgroundColor: palette.sheet,
+        backgroundColor: isDark ? '#0D1014' : '#FFFFFF',
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,
         borderWidth: 1,
-        borderColor: palette.border,
+        borderColor: isDark ? 'rgba(52, 211, 153, 0.28)' : palette.border,
       }}
       handleIndicatorStyle={{
         backgroundColor: palette.textMuted,

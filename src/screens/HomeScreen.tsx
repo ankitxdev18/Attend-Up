@@ -1505,7 +1505,10 @@ export function HomeScreen() {
               onPress={() => {}}
               style={[
                 styles.sheetCard,
-                { backgroundColor: palette.sheet, borderColor: palette.border },
+                {
+                  backgroundColor: isDark ? '#0D1014' : '#FFFFFF',
+                  borderColor: isDark ? 'rgba(52, 211, 153, 0.28)' : palette.border,
+                },
               ]}
             >
               <Text
@@ -1518,49 +1521,57 @@ export function HomeScreen() {
                 {actionSubject.name}
               </Text>
 
-              <Pressable
-                onPress={async () => {
-                  const target = actionSubject;
-                  setActionSubject(null);
-                  await markDayStatus(target.id, todayISO, 'present');
-                }}
-                style={[
-                  styles.sheetRow,
-                  { backgroundColor: palette.control, borderColor: palette.border },
-                ]}
-              >
-                <Check size={18} color={BRAND_COLORS.bright} />
-                <Text
+              <View style={styles.reorderRow}>
+                <Pressable
+                  onPress={async () => {
+                    const target = actionSubject;
+                    setActionSubject(null);
+                    await markDayStatus(target.id, todayISO, 'present');
+                  }}
                   style={[
-                    styles.sheetRowText,
-                    { color: palette.textPrimary, fontFamily: FONT_FAMILIES.sansSemiBold },
+                    styles.quickMarkActionBtn,
+                    {
+                      backgroundColor: 'rgba(16, 185, 129, 0.14)',
+                      borderColor: 'rgba(52, 211, 153, 0.35)',
+                    },
                   ]}
                 >
-                  Mark Today Present
-                </Text>
-              </Pressable>
+                  <Check size={17} color={BRAND_COLORS.bright} />
+                  <Text
+                    style={[
+                      styles.sheetRowText,
+                      { color: BRAND_COLORS.bright, fontFamily: FONT_FAMILIES.sansBold },
+                    ]}
+                  >
+                    Mark Present
+                  </Text>
+                </Pressable>
 
-              <Pressable
-                onPress={async () => {
-                  const target = actionSubject;
-                  setActionSubject(null);
-                  await markDayStatus(target.id, todayISO, 'absent');
-                }}
-                style={[
-                  styles.sheetRow,
-                  { backgroundColor: palette.control, borderColor: palette.border },
-                ]}
-              >
-                <XCircle size={18} color={SEMANTIC_COLORS.absent} />
-                <Text
+                <Pressable
+                  onPress={async () => {
+                    const target = actionSubject;
+                    setActionSubject(null);
+                    await markDayStatus(target.id, todayISO, 'absent');
+                  }}
                   style={[
-                    styles.sheetRowText,
-                    { color: palette.textPrimary, fontFamily: FONT_FAMILIES.sansSemiBold },
+                    styles.quickMarkActionBtn,
+                    {
+                      backgroundColor: 'rgba(248, 113, 113, 0.14)',
+                      borderColor: 'rgba(248, 113, 113, 0.35)',
+                    },
                   ]}
                 >
-                  Mark Today Absent
-                </Text>
-              </Pressable>
+                  <XCircle size={17} color={SEMANTIC_COLORS.absent} />
+                  <Text
+                    style={[
+                      styles.sheetRowText,
+                      { color: SEMANTIC_COLORS.absent, fontFamily: FONT_FAMILIES.sansBold },
+                    ]}
+                  >
+                    Mark Absent
+                  </Text>
+                </Pressable>
+              </View>
 
               <Pressable
                 onPress={() => {
@@ -1606,7 +1617,7 @@ export function HomeScreen() {
                     { color: palette.textPrimary, fontFamily: FONT_FAMILIES.sansSemiBold },
                   ]}
                 >
-                  Edit Name, Schedule, Target % & Color
+                  Edit Subject
                 </Text>
               </Pressable>
 
@@ -1988,15 +1999,25 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    backgroundColor: 'rgba(5, 6, 8, 0.88)',
     justifyContent: 'flex-end',
     padding: 16,
   },
   sheetCard: {
     borderRadius: 28,
     borderWidth: 1,
-    padding: 18,
-    gap: 10,
+    padding: 16,
+    gap: 8,
+  },
+  quickMarkActionBtn: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: UI_METRICS.radiusMd,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
   },
   sheetTitle: {
     fontSize: 17,
