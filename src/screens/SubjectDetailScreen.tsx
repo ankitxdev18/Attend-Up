@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -25,6 +25,7 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import {
   ArrowLeft,
@@ -79,6 +80,8 @@ import { TactilePressable } from '../components/TactilePressable';
 
 const WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const HEATMAP_DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const CALENDAR_ROW_HEIGHT = 52;
+const GLIDE_SPRING = { damping: 18, stiffness: 210, mass: 0.8 };
 
 interface CalendarDayCellProps {
   dateISO: string;
@@ -115,9 +118,9 @@ const CalendarDayCell = React.memo(function CalendarDayCell({
   onSelectDay,
   onLongPressDay,
 }: CalendarDayCellProps) {
-  const outerBorderColor = isSelected ? '#34D399' : tileBorder;
-  const outerBorderWidth = isSelected ? 2 : 1;
-  const outerBg = isSelected ? 'rgba(16, 185, 129, 0.22)' : tileBg;
+  const outerBorderColor = isSelected ? 'transparent' : tileBorder;
+  const outerBorderWidth = 1;
+  const outerBg = isSelected ? 'transparent' : tileBg;
 
   return (
     <View style={styles.dayCellSlot}>
@@ -134,7 +137,6 @@ const CalendarDayCell = React.memo(function CalendarDayCell({
             borderWidth: outerBorderWidth,
             opacity: !inCurrentMonth ? 0.3 : pressed ? 0.75 : 1,
           },
-          isSelected ? styles.dayCellSelectedGlow : null,
         ]}
       >
         {hasNote ? <View style={styles.noteCornerDot} /> : null}
@@ -259,13 +261,18 @@ export function SubjectDetailScreen() {
   const translateX = useSharedValue(0);
   const todayISO = formatDateISO(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(todayISO);
+  const [gridWidth, setGridWidth] = useState(0);
   const [inlineNoteDraft, setInlineNoteDraft] = useState<string | null>(null);
   const [savingInlineNote, setSavingInlineNote] = useState(false);
   const subjectId = subject?.id;
   const autoMarkSundays = subject?.autoMarkSundays ?? true;
 
+  const selX = useSharedValue(0);
+  const selY = useSharedValue(0);
+  const selVisible = useSharedValue(0);
+
   const handleSelectDay = useCallback((dateISO: string) => {
-    void Haptics.selectionAsync();
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedDate(dateISO);
     setInlineNoteDraft(null);
   }, [setInlineNoteDraft]);
@@ -327,6 +334,43 @@ export function SubjectDetailScreen() {
     }
     return weeks;
   }, [monthKey]);
+
+  const cellWidth = gridWidth > 0 ? gridWidth / 7 : 0;
+
+  useEffect(() => {
+    let coords: { row: number; col: number } | null = null;
+    if (selectedDate) {
+      for (let r = 0; r < calendarWeeks.length && !coords; r += 1) {
+        const row = calendarWeeks[r];
+        for (let c = 0; c < row.length; c += 1) {
+          if (row[c].dateISO === selectedDate) {
+            coords = { row: r, col: c };
+            break;
+          }
+        }
+      }
+    }
+
+    if (cellWidth > 0 && coords) {
+      const targetX = coords.col * cellWidth + 3;
+      const targetY = coords.row * CALENDAR_ROW_HEIGHT + 3;
+      if (selVisible.value === 0) {
+        selX.value = targetX;
+        selY.value = targetY;
+        selVisible.value = 1;
+      } else {
+        selX.value = withSpring(targetX, GLIDE_SPRING);
+        selY.value = withSpring(targetY, GLIDE_SPRING);
+      }
+    } else {
+      selVisible.value = 0;
+    }
+  }, [cellWidth, calendarWeeks, selectedDate, selX, selY, selVisible]);
+
+  const glidingTileStyle = useAnimatedStyle(() => ({
+    opacity: selVisible.value,
+    transform: [{ translateX: selX.value }, { translateY: selY.value }],
+  }));
 
   const heatmapColumns = useMemo(() => {
     if (!subjectId) return [];
@@ -505,15 +549,34 @@ export function SubjectDetailScreen() {
   };
 
   const handleBulkRange = async () => {
+    const rawStart = rangeStart.trim();
+    const rawEnd = rangeEnd.trim();
+    if (!rawStart || !rawEnd) {
+      showToast('Please enter both start and end day numbers.', 'error');
+      return;
+    }
+    const parsedStart = Number.parseInt(rawStart, 10);
+    const parsedEnd = Number.parseInt(rawEnd, 10);
+    if (!Number.isFinite(parsedStart) || !Number.isFinite(parsedEnd)) {
+      showToast('Enter valid day numbers.', 'error');
+      return;
+    }
+
     const { year, monthIndex } = parseMonthKey(monthKey);
     const maxDay = new Date(year, monthIndex + 1, 0).getDate();
-    const s = Math.max(1, Math.min(maxDay, Number(rangeStart) || 1));
-    const e = Math.max(s, Math.min(maxDay, Number(rangeEnd) || s));
+    const clampedStart = Math.max(1, Math.min(maxDay, parsedStart));
+    const clampedEnd = Math.max(1, Math.min(maxDay, parsedEnd));
+    const s = Math.min(clampedStart, clampedEnd);
+    const e = Math.max(clampedStart, clampedEnd);
 
     const datesToMark: string[] = [];
+    let skippedFuture = 0;
     for (let d = s; d <= e; d += 1) {
       const iso = formatDateISO(new Date(year, monthIndex, d));
-      if (iso > todayISO) continue;
+      if (iso > todayISO) {
+        skippedFuture += 1;
+        continue;
+      }
       datesToMark.push(iso);
     }
 
@@ -523,12 +586,18 @@ export function SubjectDetailScreen() {
     }
 
     setBulkOpen(false);
-    await bulkMarkSubjectDates(
+    const ok = await bulkMarkSubjectDates(
       subject.id,
       datesToMark,
       rangeStatus,
       `Bulk mark range ${monthKey}-${String(s).padStart(2, '0')}..${String(e).padStart(2, '0')}`
     );
+    if (ok && skippedFuture > 0) {
+      showToast(
+        `Marked ${datesToMark.length} ${datesToMark.length === 1 ? 'day' : 'days'} · Skipped future dates`,
+        'success'
+      );
+    }
   };
 
   const isOnTrack =
@@ -887,9 +956,38 @@ export function SubjectDetailScreen() {
                   ))}
                 </View>
 
-                <View style={styles.weeksWrap}>
+                <View
+                  style={styles.weeksWrap}
+                  onLayout={(e) => {
+                    const w = e.nativeEvent.layout.width;
+                    if (w > 0 && Math.abs(w - gridWidth) > 0.5) {
+                      setGridWidth(w);
+                    }
+                  }}
+                >
+                  {cellWidth > 0 ? (
+                    <Animated.View
+                      pointerEvents="none"
+                      style={[
+                        styles.glidingSelectionTile,
+                        {
+                          width: cellWidth - 6,
+                          height: CALENDAR_ROW_HEIGHT - 6,
+                        },
+                        glidingTileStyle,
+                      ]}
+                    >
+                      <LinearGradient
+                        pointerEvents="none"
+                        colors={['rgba(255, 255, 255, 0.16)', 'rgba(16, 185, 129, 0.04)']}
+                        start={{ x: 0.5, y: 0 }}
+                        end={{ x: 0.5, y: 1 }}
+                        style={StyleSheet.absoluteFill}
+                      />
+                    </Animated.View>
+                  ) : null}
                   {calendarWeeks.map((week, wIdx) => (
-                    <View key={`wk-${wIdx}`} style={styles.weekRow}>
+                    <View key={`wk-${wIdx}`} style={[styles.weekRow, { zIndex: 1 }]}>
                       {week.map((cell) => {
                         const rec = recordMap.get(cell.dateISO);
                         const { status } = getEffectiveStatus(
@@ -1695,44 +1793,48 @@ export function SubjectDetailScreen() {
         animationType="fade"
         onRequestClose={() => setBulkOpen(false)}
       >
-        <Pressable style={styles.modalOverlayBottom} onPress={() => setBulkOpen(false)}>
-          <Pressable
-            onPress={() => {}}
-            style={[
-              styles.bulkSheetCard,
-              {
-                backgroundColor: isDark ? '#0D1014' : '#FFFFFF',
-                borderColor: isDark ? 'rgba(52, 211, 153, 0.28)' : palette.border,
-              },
-            ]}
-          >
-            <View style={styles.simHeader}>
-              <View>
-                <Text
-                  style={[
-                    styles.simTitle,
-                    HEADING_STYLE,
-                    { color: palette.textPrimary, fontFamily: FONT_FAMILIES.sansBold },
-                  ]}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.flex1}
+        >
+          <Pressable style={styles.modalOverlayBottom} onPress={() => setBulkOpen(false)}>
+            <Pressable
+              onPress={() => {}}
+              style={[
+                styles.bulkSheetCard,
+                {
+                  backgroundColor: isDark ? '#0D1014' : '#FFFFFF',
+                  borderColor: isDark ? 'rgba(52, 211, 153, 0.28)' : palette.border,
+                },
+              ]}
+            >
+              <View style={styles.bulkHeaderRow}>
+                <View style={styles.bulkHeaderTextCol}>
+                  <Text
+                    style={[
+                      styles.simTitle,
+                      HEADING_STYLE,
+                      { color: palette.textPrimary, fontFamily: FONT_FAMILIES.sansBold },
+                    ]}
+                  >
+                    Bulk Mark · {formatMonthLabel(monthKey, true)}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.simSub,
+                      { color: palette.textSecondary, fontFamily: FONT_FAMILIES.sansMedium },
+                    ]}
+                  >
+                    Saves a safety snapshot automatically before updating
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => setBulkOpen(false)}
+                  style={[styles.simCloseBtn, { backgroundColor: palette.control }]}
                 >
-                  Bulk Mark · {formatMonthLabel(monthKey, true)}
-                </Text>
-                <Text
-                  style={[
-                    styles.simSub,
-                    { color: palette.textSecondary, fontFamily: FONT_FAMILIES.sansMedium },
-                  ]}
-                >
-                  Saves a safety snapshot automatically before updating
-                </Text>
+                  <X size={18} color={palette.textPrimary} />
+                </Pressable>
               </View>
-              <Pressable
-                onPress={() => setBulkOpen(false)}
-                style={[styles.simCloseBtn, { backgroundColor: palette.control }]}
-              >
-                <X size={18} color={palette.textPrimary} />
-              </Pressable>
-            </View>
 
             <Pressable
               onPress={() => void handleBulkUnmarkedWeekdays(false)}
@@ -1863,6 +1965,7 @@ export function SubjectDetailScreen() {
             </View>
           </Pressable>
         </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Interactive "What-If" Bunk & Attendance Simulator Modal */}
@@ -2333,6 +2436,24 @@ const styles = StyleSheet.create({
   },
   weeksWrap: {
     width: '100%',
+    position: 'relative',
+  },
+  glidingSelectionTile: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    borderRadius: 14,
+    backgroundColor: 'rgba(16, 185, 129, 0.22)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(52, 211, 153, 0.65)',
+    borderTopColor: 'rgba(255, 255, 255, 0.45)',
+    overflow: 'hidden',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
+    zIndex: 0,
   },
   weekRow: {
     width: '100%',
@@ -2342,26 +2463,18 @@ const styles = StyleSheet.create({
   dayCellSlot: {
     flex: 1,
     minWidth: 0,
-    margin: 2.5,
-    height: 48,
+    padding: 3,
+    height: CALENDAR_ROW_HEIGHT,
     alignItems: 'stretch',
     justifyContent: 'center',
   },
   dayCell: {
-    width: '100%',
-    height: 48,
+    flex: 1,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
     position: 'relative',
-  },
-  dayCellSelectedGlow: {
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 4,
   },
   noteCornerDot: {
     position: 'absolute',
@@ -2690,6 +2803,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 20,
     gap: 14,
+  },
+  bulkHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  bulkHeaderTextCol: {
+    flex: 1,
+    minWidth: 0,
   },
   simHeader: {
     flexDirection: 'row',
